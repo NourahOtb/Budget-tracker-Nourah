@@ -18,7 +18,7 @@ const asText = (limits: Record<CatKey, number>) =>
   Object.fromEntries(CAT_KEYS.map((k) => [k, fmt(limits[k])])) as Record<CatKey, string>;
 
 export function Setup() {
-  const { name, saveSettings, resetAll } = useApp();
+  const { name, saveSettings } = useApp();
   const [totalText, setTotalText] = useState("500");
   const [payday, setPayday] = useState(() => parts(todayKey()).d);
   const [limits, setLimits] = useState(() => asText(suggestLimits(500_000)));
@@ -146,9 +146,6 @@ export function Setup() {
         <div className="setup-actions">
           <button type="submit" className="btn-solid">
             Start
-          </button>
-          <button type="button" className="link-btn" onClick={() => void resetAll()}>
-            Not {name}? Change name
           </button>
         </div>
       </form>

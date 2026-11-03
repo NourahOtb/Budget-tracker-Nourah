@@ -56,6 +56,10 @@ export function useReady() {
 
 const PAYDAY_MEMORY = "payday";
 
+// Purrse has one user and no sign-in. She can change this name on the Budgets page.
+const OWNER_NAME = "Nourah";
+const withOwner = (d: AppData): AppData => (d.profile ? d : { ...d, profile: { name: OWNER_NAME } });
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(EMPTY_DATA);
   const [loaded, setLoaded] = useState(false);
@@ -75,7 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     store.load().then((d) => {
       if (!alive) return;
       setToday(todayKey());
-      setData(d);
+      setData(withOwner(d));
       setLoaded(true);
     });
     return () => {
@@ -238,7 +242,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetAll = useCallback(async () => {
     await store.clear();
-    setData({ ...EMPTY_DATA });
+    setData(withOwner({ ...EMPTY_DATA }));
     setLastAnswer(null);
     setPulse(null);
     dismissToast();

@@ -1,6 +1,8 @@
 // Every read and write of the person's data goes through this module, so the
-// screens never touch storage directly. Swapping localStorage for Supabase later
-// means writing another DataStore and changing `store` below.
+// screens never touch storage directly. With Supabase keys set, data lives in
+// Supabase; without them, it stays in this browser's localStorage.
+import { createClient } from "@supabase/supabase-js";
+import { supabaseStore } from "./supabaseStore";
 import { EMPTY_DATA, type AppData } from "./types";
 
 export interface DataStore {
@@ -44,7 +46,11 @@ export const localStore: DataStore = {
   },
 };
 
-export const store: DataStore = localStore;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+export const store: DataStore =
+  SUPABASE_URL && SUPABASE_KEY ? supabaseStore(createClient(SUPABASE_URL, SUPABASE_KEY), localStore) : localStore;
 
 export function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto

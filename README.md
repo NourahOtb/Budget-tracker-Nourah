@@ -24,11 +24,21 @@ runs the budget maths tests (status, category state, per-day amount, periods, fi
 | `lib/money.ts` | Amounts are whole fils (1 KWD = 1000 fils), always shown with three decimals |
 | `lib/budget.ts` | Budget period from payday, status, category state, per-day amount, Papi's mood |
 | `lib/summary.ts` | Everything a screen needs for the current period, plus usuals |
-| `lib/store.ts` | The only place data is read or written. Today it is `localStorage`; write another `DataStore` to move to Supabase |
+| `lib/store.ts` | The only place data is read or written. Uses Supabase when its keys are set, otherwise this browser's `localStorage` |
+| `lib/supabaseStore.ts` | Reads all of Purrse's tables and saves only what changed |
 | `lib/papi.ts` | Papi's rule-based lines and questions. `papiReply` is the one function to replace with a real AI agent |
 | `components/screens/` | Today, Spending, Budgets, Insights and Papi |
 | `design/` | The original design, screenshots and build brief |
 
 ## Data
 
-Everything is saved in the browser on this device. Nothing is sent anywhere. There is no login: the person types a name and Papi remembers it here.
+Purrse has one user and no sign-in. Data lives in Supabase (tables `profile`, `category_limits`, `spendings`, `papi_memory`, `chat_messages`, `answered_questions`), so it is the same on every device. Because there is no sign-in, anyone who opens the site can see and change it.
+
+Local setup needs a `.env.local` file (not committed):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+Without it, the app falls back to saving in the browser.

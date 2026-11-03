@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { dayMonth } from "@/lib/dates";
 import { useApp } from "./AppProvider";
-import { NameEntry } from "./NameEntry";
 import { Setup } from "./Setup";
 import { ICONS, Icon, PapiBust } from "./ui";
 
@@ -22,7 +21,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
 
   if (!app.loaded) return <div className="splash" aria-busy="true" />;
-  if (!app.data.profile) return <NameEntry />;
   if (!app.settings || !app.summary) return <Setup />;
 
   const dates = `${dayMonth(app.summary.period.start)} to ${dayMonth(app.summary.period.end)}`;

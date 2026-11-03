@@ -145,12 +145,12 @@ function Details() {
         {saved ? "Saved. Papi noted it." : ""}
       </p>
       <div className="danger-zone">
-        <p className="muted">Everything is saved on this device only. Starting over deletes your name, budgets and spendings here.</p>
+        <p className="muted">Everything is saved online, so it’s the same on every device. Starting over deletes your budgets, spendings and Papi’s notes everywhere.</p>
         <button
           type="button"
           className="btn-ghost danger"
           onClick={() => {
-            if (window.confirm("Start over? This deletes your name, budgets and every spending on this device.")) void resetAll();
+            if (window.confirm("Start over? This deletes your budgets, every spending and Papi’s notes on every device.")) void resetAll();
           }}
         >
           Start over
