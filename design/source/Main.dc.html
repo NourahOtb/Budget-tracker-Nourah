@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Purrse budget tracker</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Figtree:wght@400;500;600;700&amp;display=swap">
+<style>
+body { margin: 0; background: #1C1822; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.pl-ghost:hover { background: #3B3445 !important; }
+.pl-row:hover { background: #2E2836; }
+.pl-solid:hover { filter: brightness(1.08); }
+.pl-bar:hover .pl-barfill, .pl-bar:focus-visible .pl-barfill { background: #F7F1E8 !important; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #F7F1E8; outline-offset: 2px; }
+.pl-hero button:focus-visible { outline-color: #1C1822; }
+input::placeholder { color: #A99EB5; }
+.pl-pop { animation: pl-pop 420ms cubic-bezier(.3,1.5,.5,1); transform-origin: left bottom; }
+.pl-wiggle { animation: pl-wiggle 620ms ease-in-out; transform-origin: 70% 75%; }
+.pl-toast { animation: pl-rise 240ms ease-out; }
+@keyframes pl-pop { 0% { transform: scale(.97); } 55% { transform: scale(1.025); } 100% { transform: scale(1); } }
+@keyframes pl-wiggle { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-2.4deg); } 65% { transform: rotate(1.8deg); } }
+@keyframes pl-rise { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .pl-pop, .pl-wiggle, .pl-toast { animation: none; } }
+</style>
+</helmet>
+
+<div style="{{rootStyle}}">
+
+  <!-- Top bar on desktop -->
+  <sc-if value="{{isDesktop}}" hint-placeholder-val="{{true}}">
+    <header style="display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; max-width: 1280px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 22px 40px 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: #F6C156;">
+          <img src="/_blob/85f42c148154e7d747da6b05d85d202a" alt="" style="width: 44px; height: 44px; display: block;">
+        </div>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 26px; letter-spacing: -0.02em;">Purrse</span>
+      </div>
+      <nav aria-label="Main" style="display: flex; gap: 4px; background: #27222E; padding: 5px; border-radius: 999px;">
+        <sc-for list="{{nav}}" as="item" hint-placeholder-count="5">
+          <button type="button" class="{{item.cls}}" onClick="{{item.pick}}" aria-current="{{item.current}}" style="{{item.style}}">{{item.label}}</button>
+        </sc-for>
+      </nav>
+      <p style="margin: 0; color: #C5BBCF; font-size: 15px;">25 Oct to 24 Nov</p>
+    </header>
+  </sc-if>
+
+  <sc-if value="{{isCompact}}" hint-placeholder-val="{{false}}">
+    <header style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 8px;">
+      <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em;">Purrse</span>
+      <span style="color: #C5BBCF; font-size: 14px;">25 Oct to 24 Nov</span>
+    </header>
+  </sc-if>
+
+  <main style="{{mainStyle}}">
+
+    <!-- TODAY -->
+    <sc-if value="{{isToday}}" hint-placeholder-val="{{true}}">
+      <div style="{{todayGrid}}">
+        <div style="display: flex; flex-direction: column; min-width: 0;">
+          <section aria-label="Money left this month" class="pl-hero" style="{{heroStyle}}">
+            <p style="margin: 0; font-size: 17px; font-weight: 700;">{{hero.label}}</p>
+            <div class="{{popClass}}" style="{{heroNumStyle}}">
+              <span>{{disp.whole}}</span><span style="opacity: 0.72; font-size: 0.56em;">.{{disp.frac}}</span>
+              <span style="font-size: 0.26em; letter-spacing: 0; margin-left: 0.3em; font-weight: 700;">KWD</span>
+            </div>
+            <p style="margin: 6px 0 0; font-size: 17px; font-weight: 500; line-height: 1.4; max-width: 300px;">{{hero.sub}}</p>
+            <div style="margin-top: 22px; max-width: {{heroBarW}};">
+              <div style="position: relative; height: 10px; background: rgba(28, 24, 34, 0.2); border-radius: 999px;">
+                <div style="height: 10px; border-radius: 999px; background: #1C1822; width: {{hero.barW}};"></div>
+                <div aria-hidden="true" style="position: absolute; top: -4px; width: 3px; height: 18px; border-radius: 2px; background: #FFFFFF; left: 32.3%;"></div>
+              </div>
+              <p style="margin: 8px 0 0; font-size: 14px; font-weight: 600;">{{hero.barText}}</p>
+            </div>
+            <img class="{{wiggleClass}}" src="{{loungeSrc}}" alt="{{loungeAlt}}" style="{{loungeStyle}}">
+          </section>
+
+          <form onSubmit="{{submit}}" style="background: #27222E; border-radius: 22px; padding: 20px;">
+            <label for="pl-add" style="display: block; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 12px;">Add a spending</label>
+            <div style="display: flex; gap: 10px;">
+              <input id="pl-add" ref="{{setInput}}" value="{{draft}}" onChange="{{onDraft}}" placeholder="4.5 coffee" autocomplete="off" style="flex: 1 1 auto; min-width: 0; height: 56px; box-sizing: border-box; padding: 0 18px; font-size: 20px; background: #1C1822; border: 2px solid #5A5166; border-radius: 16px; color: #F7F1E8;">
+              <button type="submit" class="pl-solid" disabled="{{noDraft}}" style="{{addStyle}}">{{addLabel}}</button>
+            </div>
+            <sc-if value="{{hasDraft}}" hint-placeholder-val="{{false}}">
+              <div style="margin-top: 14px;">
+                <p style="margin: 0 0 10px; font-size: 15px; color: #C5BBCF;">{{draftName}} goes in:</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  <sc-for list="{{draftCats}}" as="c" hint-placeholder-count="6">
+                    <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="{{c.style}}">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg>
+                      {{c.name}}
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{noDraft}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px;">
+                <span style="font-size: 15px; color: #C5BBCF; margin-right: 4px;">Your usuals</span>
+                <sc-for list="{{usuals}}" as="u" hint-placeholder-count="3">
+                  <button type="button" class="pl-ghost" onClick="{{u.pick}}" style="min-height: 44px; padding: 0 14px; background: #332C3B; border: 0; border-radius: 999px; font-size: 15px;">{{u.label}}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </form>
+
+          <section aria-label="Categories" style="margin-top: 28px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px;">
+              <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Budgets at a glance</h2>
+              <button type="button" onClick="{{goBudgets}}" style="min-height: 44px; background: none; border: 0; padding: 0; color: #F7F1E8; font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px;">Change budgets</button>
+            </div>
+            <div style="{{glanceGrid}}">
+              <sc-for list="{{cats}}" as="c" hint-placeholder-count="6">
+                <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
+                  <div style="{{c.tile}}">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1822" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg>
+                  </div>
+                  <div style="flex: 1 1 auto; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 15px;">
+                      <span style="font-weight: 600;">{{c.name}}</span>
+                      <span style="{{c.statusStyle}}">{{c.status}}</span>
+                    </div>
+                    <div style="height: 8px; border-radius: 999px; background: #3B3445; margin-top: 7px;">
+                      <div style="{{c.fill}}"></div>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 28px; min-width: 0;">
+          <section aria-label="Papi says" style="background: #27222E; border-radius: 22px; padding: 22px;">
+            <div style="display: flex; gap: 16px; align-items: flex-start;">
+              <div style="{{avatarStyle}}"><img src="{{bustSrc}}" alt="" style="width: 76px; height: 76px; display: block;"></div>
+              <div style="min-width: 0;">
+                <p style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #C5BBCF;">Papi</p>
+                <p style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 23px; font-weight: 500; line-height: 1.25;">{{say.text}}</p>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;">
+              <sc-for list="{{say.chips}}" as="chip" hint-placeholder-count="2">
+                <button type="button" class="pl-ghost" onClick="{{chip.pick}}" style="min-height: 44px; padding: 0 16px; background: #332C3B; border: 0; border-radius: 999px; font-size: 15px; font-weight: 600;">{{chip.label}}</button>
+              </sc-for>
+            </div>
+          </section>
+
+          <section aria-label="Latest spendings">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px;">
+              <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Latest</h2>
+              <button type="button" onClick="{{goSpending}}" style="min-height: 44px; background: none; border: 0; padding: 0; color: #F7F1E8; font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px;">See all</button>
+            </div>
+            <sc-for list="{{latest}}" as="t" hint-placeholder-count="6">
+              <div style="display: flex; gap: 12px; align-items: center; padding: 10px 0;">
+                <div style="{{t.tile}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1822" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg></div>
+                <div style="flex: 1 1 auto; min-width: 0;">
+                  <div style="font-weight: 600; font-size: 16px;">{{t.name}}</div>
+                  <div style="font-size: 14px; color: #C5BBCF;">{{t.when}}</div>
+                </div>
+                <div style="font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;">{{t.amount}}</div>
+              </div>
+            </sc-for>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SPENDING -->
+    <sc-if value="{{isSpending}}" hint-placeholder-val="{{false}}">
+      <div style="max-width: 820px; margin: 0 auto;">
+        <h1 style="{{h1}}">Spending</h1>
+        <p style="margin: 6px 0 20px; font-size: 17px; color: #C5BBCF;">{{spendSummary}}</p>
+        <label for="pl-search" style="display: block; font-size: 15px; font-weight: 600; margin-bottom: 8px;">Search your spendings</label>
+        <input id="pl-search" value="{{query}}" onChange="{{onQuery}}" placeholder="delivery, shoes, taxi" autocomplete="off" style="width: 100%; box-sizing: border-box; height: 52px; padding: 0 16px; font-size: 17px; background: #27222E; border: 2px solid #5A5166; border-radius: 14px;">
+        <div role="group" aria-label="Filter by category" style="display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 22px;">
+          <sc-for list="{{filters}}" as="f" hint-placeholder-count="7">
+            <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="{{f.style}}">{{f.name}}</button>
+          </sc-for>
+        </div>
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+          <section style="margin-bottom: 18px;">
+            <div style="display: flex; justify-content: space-between; gap: 12px; padding: 0 12px 6px; font-size: 15px; color: #C5BBCF;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{g.label}}</h2>
+              <span style="font-variant-numeric: tabular-nums;">{{g.total}}</span>
+            </div>
+            <sc-for list="{{g.rows}}" as="t" hint-placeholder-count="2">
+              <div class="pl-row" style="display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-radius: 14px;">
+                <div style="{{t.tile}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1822" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg></div>
+                <div style="flex: 1 1 auto; min-width: 0;">
+                  <div style="font-weight: 600; font-size: 16px;">{{t.name}}</div>
+                  <div style="font-size: 14px; color: #C5BBCF;">{{t.catName}}</div>
+                </div>
+                <div style="font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;">{{t.amount}}</div>
+                <button type="button" class="pl-ghost" onClick="{{t.remove}}" aria-label="{{t.removeLabel}}" style="width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: transparent; border: 0; border-radius: 12px; color: #C5BBCF;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"></path></svg>
+                </button>
+              </div>
+            </sc-for>
+          </section>
+        </sc-for>
+        <sc-if value="{{noResults}}" hint-placeholder-val="{{false}}">
+          <div style="text-align: center; padding: 40px 0;">
+            <p style="margin: 0 0 14px; font-size: 17px;">No spendings match that search.</p>
+            <button type="button" class="pl-ghost" onClick="{{clearFilters}}" style="min-height: 44px; padding: 0 18px; background: #332C3B; border: 0; border-radius: 999px; font-weight: 600;">Clear search and filters</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- BUDGETS -->
+    <sc-if value="{{isBudgets}}" hint-placeholder-val="{{false}}">
+      <div style="max-width: 1040px; margin: 0 auto;">
+        <h1 style="{{h1}}">Budgets</h1>
+        <section aria-label="Monthly total" style="background: #27222E; border-radius: 22px; padding: 24px; margin: 20px 0 28px;">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+            <div>
+              <p style="margin: 0 0 2px; font-size: 16px; font-weight: 600; color: #C5BBCF;">Monthly total</p>
+              <p style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 44px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;">{{totalText}} <span style="font-size: 18px; font-weight: 700; letter-spacing: 0;">KWD</span></p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="pl-ghost" onClick="{{totalDown}}" aria-label="Lower monthly total by 10 KWD" style="width: 48px; height: 48px; background: #332C3B; border: 0; border-radius: 14px; font-size: 22px;">-</button>
+              <button type="button" class="pl-ghost" onClick="{{totalUp}}" aria-label="Raise monthly total by 10 KWD" style="width: 48px; height: 48px; background: #332C3B; border: 0; border-radius: 14px; font-size: 22px;">+</button>
+            </div>
+          </div>
+          <div aria-hidden="true" style="display: flex; gap: 2px; height: 16px; margin-top: 18px; border-radius: 999px; overflow: hidden; background: #3B3445;">
+            <sc-for list="{{alloc}}" as="s" hint-placeholder-count="6">
+              <div style="{{s.style}}"></div>
+            </sc-for>
+          </div>
+          <p role="status" style="{{allocMsgStyle}}">{{allocMsg}}</p>
+        </section>
+        <div style="{{budgetGrid}}">
+          <sc-for list="{{cats}}" as="c" hint-placeholder-count="6">
+            <section aria-label="{{c.name}}" style="background: #27222E; border-radius: 22px; padding: 20px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="{{c.tile}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1822" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg></div>
+                <h2 style="margin: 0; flex: 1 1 auto; font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 700;">{{c.name}}</h2>
+                <span style="{{c.statusStyle}}">{{c.status}}</span>
+              </div>
+              <div style="height: 12px; border-radius: 999px; background: #3B3445; margin: 16px 0 10px;"><div style="{{c.fill}}"></div></div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <p style="margin: 0; font-size: 15px; color: #C5BBCF; font-variant-numeric: tabular-nums;">{{c.spentText}} of {{c.limitText}}</p>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="pl-ghost" onClick="{{c.down}}" aria-label="{{c.downLabel}}" style="width: 44px; height: 44px; background: #332C3B; border: 0; border-radius: 12px; font-size: 20px;">-</button>
+                  <button type="button" class="pl-ghost" onClick="{{c.up}}" aria-label="{{c.upLabel}}" style="width: 44px; height: 44px; background: #332C3B; border: 0; border-radius: 12px; font-size: 20px;">+</button>
+                </div>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- INSIGHTS -->
+    <sc-if value="{{isInsights}}" hint-placeholder-val="{{false}}">
+      <div style="max-width: 1040px; margin: 0 auto;">
+        <h1 style="{{h1}}">Insights</h1>
+        <p style="margin: 6px 0 24px; font-size: 19px; line-height: 1.4; color: #F7F1E8; max-width: 620px;">{{insightLine}}</p>
+        <div style="{{insightGrid}}">
+          <section style="background: #27222E; border-radius: 22px; padding: 24px; min-width: 0;">
+            <h2 style="margin: 0 0 16px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Where it went</h2>
+            <sc-for list="{{ranked}}" as="r" hint-placeholder-count="6">
+              <div style="margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; margin-bottom: 6px;">
+                  <span style="font-weight: 600;">{{r.name}}</span>
+                  <span style="font-variant-numeric: tabular-nums; color: #C5BBCF;">{{r.amount}} KWD, {{r.share}}%</span>
+                </div>
+                <div style="height: 10px; border-radius: 0 4px 4px 0;"><div style="{{r.bar}}"></div></div>
+              </div>
+            </sc-for>
+          </section>
+          <section style="background: #27222E; border-radius: 22px; padding: 24px; min-width: 0;">
+            <h2 style="margin: 0 0 4px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Day by day</h2>
+            <p aria-live="polite" style="margin: 0 0 16px; font-size: 15px; color: #C5BBCF; min-height: 22px; font-variant-numeric: tabular-nums;">{{dayReadout}}</p>
+            <div style="position: relative; height: 200px; display: flex; align-items: flex-end; gap: 6px; border-bottom: 1px solid #5A5166;">
+              <div aria-hidden="true" style="position: absolute; left: 0; right: 0; border-top: 2px dashed #F7F1E8; bottom: {{allowanceBottom}}; z-index: 1; pointer-events: none;"></div>
+              <sc-for list="{{days}}" as="d" hint-placeholder-count="10">
+                <button type="button" class="pl-bar" onMouseEnter="{{d.hover}}" onFocus="{{d.hover}}" onMouseLeave="{{clearHover}}" onBlur="{{clearHover}}" aria-label="{{d.aria}}" style="flex: 1 1 0; min-width: 0; height: 100%; padding: 0; background: transparent; border: 0; display: flex; align-items: flex-end;">
+                  <div class="pl-barfill" style="{{d.bar}}"></div>
+                </button>
+              </sc-for>
+            </div>
+            <div aria-hidden="true" style="display: flex; gap: 6px; margin-top: 8px; font-size: 13px; color: #C5BBCF;">
+              <sc-for list="{{days}}" as="d" hint-placeholder-count="10">
+                <span style="flex: 1 1 0; min-width: 0; text-align: center;">{{d.short}}</span>
+              </sc-for>
+            </div>
+            <p style="margin: 12px 0 0; font-size: 14px; color: #C5BBCF;">Dashed line: your daily budget of {{allowanceText}} KWD. Hover or tab through the bars for each day.</p>
+          </section>
+          <section style="background: #27222E; border-radius: 22px; padding: 24px; min-width: 0;">
+            <h2 style="margin: 0 0 16px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">This month against last</h2>
+            <sc-for list="{{compare}}" as="r" hint-placeholder-count="2">
+              <div style="margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15px; margin-bottom: 6px;">
+                  <span style="font-weight: 600;">{{r.name}}</span>
+                  <span style="font-variant-numeric: tabular-nums; color: #C5BBCF;">{{r.amount}} KWD</span>
+                </div>
+                <div style="{{r.bar}}"></div>
+              </div>
+            </sc-for>
+            <p style="margin: 4px 0 0; font-size: 14px; color: #C5BBCF;">Both counted up to day 10 of the month.</p>
+          </section>
+          <section style="background: #27222E; border-radius: 22px; padding: 24px; min-width: 0;">
+            <h2 style="margin: 0 0 8px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Biggest spendings</h2>
+            <sc-for list="{{biggest}}" as="t" hint-placeholder-count="3">
+              <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
+                <div style="{{t.tile}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C1822" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg></div>
+                <div style="flex: 1 1 auto; min-width: 0;">
+                  <div style="font-weight: 600; font-size: 16px;">{{t.name}}</div>
+                  <div style="font-size: 14px; color: #C5BBCF;">{{t.when}}</div>
+                </div>
+                <div style="font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums;">{{t.amount}}</div>
+              </div>
+            </sc-for>
+          </section>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- PAPI -->
+    <sc-if value="{{isPapi}}" hint-placeholder-val="{{false}}">
+      <div style="{{papiGrid}}">
+        <section aria-label="Conversation with Papi" style="display: flex; flex-direction: column; gap: 14px; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="{{avatarStyle}}"><img src="{{bustSrc}}" alt="" style="width: 76px; height: 76px; display: block;"></div>
+            <div>
+              <h1 style="{{h1}}">Papi</h1>
+              <p style="margin: 2px 0 0; font-size: 15px; color: #C5BBCF;">Quiet. Curious. Reads every receipt.</p>
+            </div>
+          </div>
+          <div aria-live="polite" style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+            <sc-for list="{{chat}}" as="m" hint-placeholder-count="3">
+              <div style="{{m.style}}">{{m.text}}</div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{prompts}}" as="p" hint-placeholder-count="4">
+              <button type="button" class="pl-ghost" onClick="{{p.pick}}" style="min-height: 44px; padding: 0 16px; background: #332C3B; border: 0; border-radius: 999px; font-size: 15px; font-weight: 600;">{{p.label}}</button>
+            </sc-for>
+          </div>
+          <form onSubmit="{{askSubmit}}" style="display: flex; gap: 10px;">
+            <label for="pl-ask" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);">Ask Papi</label>
+            <input id="pl-ask" value="{{ask}}" onChange="{{onAsk}}" placeholder="Can I afford 25 KWD shoes?" autocomplete="off" style="flex: 1 1 auto; min-width: 0; height: 52px; box-sizing: border-box; padding: 0 16px; font-size: 17px; background: #27222E; border: 2px solid #5A5166; border-radius: 14px;">
+            <button type="submit" class="pl-solid" style="height: 52px; padding: 0 20px; background: #F6C156; color: #1C1822; border: 0; border-radius: 14px; font-weight: 700;">Ask</button>
+          </form>
+        </section>
+        <aside aria-label="What Papi remembers" style="background: #27222E; border-radius: 22px; padding: 22px; align-self: start;">
+          <h2 style="margin: 0 0 4px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">What Papi remembers</h2>
+          <p style="margin: 0 0 12px; font-size: 15px; line-height: 1.4; color: #C5BBCF;">He uses these so he doesn’t ask you twice. You can make him forget anything.</p>
+          <sc-for list="{{memory}}" as="m" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 6px 0;">
+              <p style="margin: 0; flex: 1 1 auto; font-size: 16px; line-height: 1.35;">{{m.text}}</p>
+              <button type="button" class="pl-ghost" onClick="{{m.forget}}" style="min-height: 44px; padding: 0 12px; background: transparent; border: 0; border-radius: 10px; font-size: 14px; font-weight: 600; color: #C5BBCF;">Forget</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{noMemory}}" hint-placeholder-val="{{false}}">
+            <p style="margin: 0; font-size: 16px;">Nothing yet. Answer one of his questions and it will show up here.</p>
+          </sc-if>
+        </aside>
+      </div>
+    </sc-if>
+  </main>
+
+  <!-- Phone navigation -->
+  <sc-if value="{{isCompact}}" hint-placeholder-val="{{false}}">
+    <nav aria-label="Main" style="flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #27222E; padding: 6px 4px 8px; border-radius: 22px 22px 0 0;">
+      <sc-for list="{{nav}}" as="item" hint-placeholder-count="5">
+        <button type="button" onClick="{{item.pick}}" aria-current="{{item.current}}" style="{{item.phoneStyle}}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{item.icon}}"></path></svg>
+          <span style="font-size: 12px; font-weight: 600;">{{item.label}}</span>
+        </button>
+      </sc-for>
+    </nav>
+  </sc-if>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+    <div role="status" class="pl-toast" style="{{toastStyle}}">
+      <span style="font-size: 15px; font-weight: 500;">{{toast.text}}</span>
+      <button type="button" onClick="{{undo}}" style="min-height: 44px; padding: 0 12px; background: none; border: 0; font-weight: 700; font-size: 15px; color: #1C1822; text-decoration: underline; text-underline-offset: 3px;">Undo</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"screen":{"editor":"enum","options":["today","spending","budgets","insights","papi"],"default":"today"},"scenario":{"editor":"enum","options":["track","close","over"],"default":"track"},"compact":{"editor":null},"$preview":{"width":1440,"height":1120}}'>
+const FONT = "'Bricolage Grotesque', sans-serif";
+const CATS = {
+  food: { name: 'Food', color: '#EE7F3B', limit: 110000, icon: 'M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8zM17 9h2a2 2 0 0 1 0 5h-2M8 2v3M12 2v3' },
+  transport: { name: 'Transport', color: '#3D97EC', limit: 50000, icon: 'M5 11l2-5h10l2 5M4 11h16v6H4zM7 17v2M17 17v2M7.5 14h.01M16.5 14h.01' },
+  fun: { name: 'Fun', color: '#9B6CF5', limit: 70000, icon: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z' },
+  shopping: { name: 'Shopping', color: '#C9A227', limit: 55000, icon: 'M6 8h12l1 13H5zM9 8V6a3 3 0 0 1 6 0v2' },
+  papi: { name: 'Papi', color: '#E8628F', limit: 25000, icon: 'M12 13c-3 0-5 2.2-5 4.5 0 1.5 1.2 2.5 2.7 2.5.9 0 1.5-.4 2.3-.4s1.4.4 2.3.4c1.5 0 2.7-1 2.7-2.5 0-2.3-2-4.5-5-4.5zM4.5 9.5a1.5 2 0 1 0 3 0 1.5 2 0 1 0-3 0zM8.5 5.5a1.5 2 0 1 0 3 0 1.5 2 0 1 0-3 0zM12.5 5.5a1.5 2 0 1 0 3 0 1.5 2 0 1 0-3 0zM16.5 9.5a1.5 2 0 1 0 3 0 1.5 2 0 1 0-3 0z' },
+  bills: { name: 'Bills', color: '#28AB9E', limit: 190000, icon: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6' }
+};
+const CAT_KEYS = Object.keys(CATS);
+const DAYS = ['Sun 25 Oct', 'Mon 26 Oct', 'Tue 27 Oct', 'Wed 28 Oct', 'Thu 29 Oct', 'Fri 30 Oct', 'Sat 31 Oct', 'Sun 1 Nov', 'Mon 2 Nov', 'Tue 3 Nov'];
+const TODAY = 9;
+const CYCLE_DAYS = 31;
+const DAYS_LEFT = 22;
+const LAST_MONTH_SO_FAR = 248600;
+const KEYWORDS = {
+  food: ['coffee', 'latte', 'tea', 'karak', 'lunch', 'dinner', 'breakfast', 'shawarma', 'burger', 'sushi', 'pizza', 'delivery', 'grocer', 'restaurant', 'cafe', 'snack', 'food'],
+  transport: ['taxi', 'uber', 'careem', 'fuel', 'petrol', 'parking', 'bus', 'car'],
+  fun: ['cinema', 'movie', 'game', 'concert', 'gift', 'netflix', 'spotify', 'trip'],
+  shopping: ['shoes', 'bag', 'dress', 'clothes', 'makeup', 'beads', 'shirt', 'perfume'],
+  papi: ['papi', 'cat', 'litter', 'treat', 'vet', 'kibble', 'toy'],
+  bills: ['rent', 'phone', 'internet', 'gym', 'electric', 'water', 'insurance']
+};
+const BLOB = {
+  lounge: { content: '/_blob/ee31c01e398a404e9c20aa97cab45e94', curious: '/_blob/3e3a61d2d65a21d3d3e44cdcde677ff1', needy: '/_blob/6492d5badeb3303219808e78854fe3ae', playful: '/_blob/cfe3e5cd1e6c741d23218e9679c96217', worried: '/_blob/3f022947f2333e8e4487b0b69b044ec1' },
+  bust: { content: '/_blob/85f42c148154e7d747da6b05d85d202a', curious: '/_blob/1dcbf01a5f9e0b4b8ccae84217ef7ab4', needy: '/_blob/e10617c3c508bac9b1f42f6c59621c54', playful: '/_blob/a013a81566994ee6cbbdd389b6e4f3b4', worried: '/_blob/36c1db56a36ce947897d67b6c812d192' }
+};
+const SEED = [
+  ['Spanish latte', 'food', 1750, 9], ['Taxi home', 'transport', 2500, 9],
+  ['Shawarma night', 'food', 4250, 8], ['Treats for Papi', 'papi', 3500, 8],
+  ['Cinema with friends', 'fun', 6000, 7], ['Delivery, sushi', 'food', 9750, 7],
+  ['Notebook and pens', 'shopping', 5500, 6], ['Delivery, burgers', 'food', 7250, 6],
+  ['Fuel', 'transport', 6000, 5], ['Delivery, pasta', 'food', 8500, 5],
+  ['Beads and sequins', 'shopping', 14000, 4],
+  ['Groceries', 'food', 22300, 3],
+  ['New shoes', 'shopping', 38000, 2],
+  ['Litter and food for Papi', 'papi', 19000, 1], ['Gym', 'bills', 30000, 1],
+  ['Phone plan', 'bills', 12500, 0], ['Internet', 'bills', 15000, 0], ['Streaming', 'fun', 4500, 0]
+];
+const fmt = (f) => (Math.abs(f) / 1000).toFixed(3);
+const css = (o) => Object.keys(o).map((k) => k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase()) + ':' + o[k]).join(';');
+const tileCss = (color) => css({ width: '42px', height: '42px', flex: 'none', borderRadius: '12px', display: 'grid', placeItems: 'center', background: color });
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    let id = 0;
+    const txns = SEED.map((s) => ({ id: ++id, name: s[0], cat: s[1], fils: s[2], day: s[3] }));
+    const sc = props.scenario;
+    if (sc === 'close') txns.unshift({ id: ++id, name: 'Birthday dinner', cat: 'food', fils: 60000, day: TODAY });
+    if (sc === 'over') txns.unshift({ id: ++id, name: 'New handbag', cat: 'shopping', fils: 300000, day: TODAY });
+    const limits = {};
+    CAT_KEYS.forEach((k) => { limits[k] = CATS[k].limit; });
+    this.nextId = id + 1;
+    this.state = {
+      screen: props.screen || 'today', txns, limits, total: 500000,
+      draft: '', draftCat: null, query: '', filter: 'all', toast: null, pulse: null, pulseKey: 0,
+      answer: null, hoverDay: null, ask: '', narrow: false,
+      memory: ['Payday is the 25th', 'Litter and food for Papi always come first'],
+      chat: [{ who: 'papi', text: 'Three deliveries since Friday. Busy few days?' }],
+      disp: null
+    };
+  }
+  componentDidMount() {
+    this.onResize = () => { const narrow = window.innerWidth < 860; if (narrow !== this.state.narrow) this.setState({ narrow }); };
+    this.onResize();
+    window.addEventListener('resize', this.onResize);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.onResize);
+    clearTimeout(this.toastTimer); clearTimeout(this.pulseTimer); cancelAnimationFrame(this.raf);
+  }
+  componentDidUpdate() {
+    const target = Math.abs(this.state.total - this.spent());
+    if (this.state.disp !== null && this.animTo === target) return;
+    if (this.state.disp === null && this.animTo === undefined) { this.animTo = target; this.shown = target; return; }
+    if (this.animTo === target) return;
+    const from = this.shown === undefined ? target : this.shown;
+    this.animTo = target;
+    cancelAnimationFrame(this.raf);
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const start = performance.now();
+    const step = (now) => {
+      const p = reduce ? 1 : Math.min(1, (now - start) / 520);
+      const e = 1 - Math.pow(1 - p, 3);
+      this.shown = Math.round(from + (target - from) * e);
+      this.setState({ disp: this.shown });
+      if (p < 1) this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+  spent() { return this.state.txns.reduce((a, t) => a + t.fils, 0); }
+  catSpent(k) { return this.state.txns.filter((t) => t.cat === k).reduce((a, t) => a + t.fils, 0); }
+
+  parse(text) {
+    const m = text.match(/(\d+(?:[.,]\d{1,3})?)/);
+    if (!m) return null;
+    const fils = Math.round(parseFloat(m[1].replace(',', '.')) * 1000);
+    if (!(fils > 0)) return null;
+    const words = text.replace(m[0], '').replace(/\b(kwd|kd)\b/i, '').trim().replace(/\s+/g, ' ');
+    const lower = words.toLowerCase();
+    let cat = 'fun';
+    CAT_KEYS.some((k) => { if (KEYWORDS[k].some((w) => lower.includes(w))) { cat = k; return true; } return false; });
+    const name = words ? words[0].toUpperCase() + words.slice(1) : 'Something';
+    return { fils, name, cat };
+  }
+  showToast(text, undoFn) {
+    clearTimeout(this.toastTimer);
+    this.setState({ toast: { text, undoFn } });
+    this.toastTimer = setTimeout(() => this.setState({ toast: null }), 6000);
+  }
+  addTxn(p, cat) {
+    const t = { id: this.nextId++, name: p.name, cat, fils: p.fils, day: TODAY };
+    this.setState((s) => ({ txns: [t].concat(s.txns), draft: '', draftCat: null, pulse: cat, pulseKey: s.pulseKey + 1 }));
+    clearTimeout(this.pulseTimer);
+    this.pulseTimer = setTimeout(() => this.setState({ pulse: null }), 3200);
+    this.showToast('Added ' + fmt(p.fils) + ' KWD to ' + CATS[cat].name, () => this.setState((s) => ({ txns: s.txns.filter((x) => x.id !== t.id), toast: null, pulse: null })));
+  }
+  removeTxn(t) {
+    const idx = this.state.txns.indexOf(t);
+    this.setState((s) => ({ txns: s.txns.filter((x) => x.id !== t.id) }));
+    this.showToast('Removed ' + t.name, () => this.setState((s) => { const n = s.txns.slice(); n.splice(idx, 0, t); return { txns: n, toast: null }; }));
+  }
+  answerPapi(key) {
+    const R = {
+      busy: { you: 'Yes, a busy few days', papi: 'Okay. I won’t count those.', mem: 'Delivery was fine during the busy days from 30 Oct' },
+      like: { you: 'I just really like delivery', papi: 'Same. I like tuna.', mem: 'You like delivery and that is allowed' }
+    }[key];
+    this.setState((s) => ({
+      answer: R.papi,
+      memory: s.memory.concat([R.mem]),
+      chat: s.chat.concat([{ who: 'you', text: R.you }, { who: 'papi', text: R.papi }])
+    }));
+  }
+  reply(q) {
+    const left = this.state.total - this.spent();
+    const num = q.match(/(\d+(?:[.,]\d{1,3})?)/);
+    const lower = q.toLowerCase();
+    if (num && /afford|buy|get|can i/.test(lower)) {
+      const cost = Math.round(parseFloat(num[1].replace(',', '.')) * 1000);
+      const after = left - cost;
+      if (after < 0) return 'That puts you ' + fmt(after) + ' KWD over for the month. Could it wait until the 25th?';
+      const shopOver = this.catSpent('shopping') - this.state.limits.shopping;
+      return 'You’d have ' + fmt(after) + ' KWD left, about ' + fmt(Math.round(after / DAYS_LEFT)) + ' a day.' + (shopOver > 0 ? ' Shopping is already ' + fmt(shopOver) + ' over, though. Is it a very good one?' : ' Is it a very good one?');
+    }
+    if (/where|most|went/.test(lower)) {
+      const spent = this.spent();
+      const top = CAT_KEYS.slice().sort((a, b) => this.catSpent(b) - this.catSpent(a))[0];
+      return CATS[top].name + ': ' + fmt(this.catSpent(top)) + ' KWD. That’s ' + Math.round(this.catSpent(top) / spent * 100) + '% of everything so far.';
+    }
+    if (/month|going|doing|how am/.test(lower)) {
+      const p = Math.round(this.spent() / this.state.total * 100);
+      return p + '% of the money is gone and ' + Math.round(10 / CYCLE_DAYS * 100) + '% of the month is. ' + (left < 0 ? 'Let’s look at it together.' : p > 45 ? 'A little fast. Not scary.' : 'We’re fine. Pet me.');
+    }
+    if (/you|papi|cost/.test(lower)) return fmt(this.catSpent('papi')) + ' KWD so far. Worth it. I checked.';
+    return 'I only understand your spending. Try asking if you can afford something.';
+  }
+  sendQuestion(q) {
+    if (!q.trim()) return;
+    this.setState((s) => ({ ask: '', chat: s.chat.concat([{ who: 'you', text: q }, { who: 'papi', text: this.reply(q) }]) }));
+  }
+  renderVals() {
+    const s = this.state;
+    const compact = this.props.compact === true || s.narrow;
+    const spent = this.spent();
+    const left = s.total - spent;
+    const pct = spent / s.total * 100;
+    const elapsed = 10 / CYCLE_DAYS * 100;
+    const gap = pct - elapsed;
+    const status = left < 0 ? 'over' : gap > 12 ? 'close' : 'track';
+    const bg = { track: '#7BE3B5', close: '#F6C156', over: '#FF8B7B' }[status];
+    const mood = s.pulse && status !== 'over' ? 'playful' : status === 'over' ? 'worried' : status === 'close' ? 'needy' : (!s.answer && gap > 5) ? 'curious' : 'content';
+    const shown = s.disp === null ? Math.abs(left) : s.disp;
+    const dispText = fmt(shown).split('.');
+    const go = (screen) => () => this.setState({ screen });
+    const deliveries = s.txns.filter((t) => /delivery/i.test(t.name)).length;
+
+    const hero = {
+      label: status === 'over' ? 'Over budget by' : 'Left to spend',
+      sub: status === 'over' ? 'Nobody’s in trouble. 22 days until payday.' : 'About ' + fmt(Math.round(left / DAYS_LEFT)) + ' KWD a day for the next 22 days.' + (status === 'close' ? ' Getting close.' : ''),
+      barW: Math.min(100, pct).toFixed(1) + '%',
+      barText: fmt(spent) + ' of ' + fmt(s.total) + ' spent. White mark: today.'
+    };
+
+    let say;
+    if (s.pulse && status !== 'over') {
+      say = { text: s.pulse === 'papi' ? 'For me? Do it again.' : 'Noted. Thank you.', chips: [] };
+    } else if (status === 'over') {
+      say = { text: 'We went past the budget. Want to look at it together?', chips: [{ label: 'Show me where it went', pick: go('insights') }] };
+    } else if (status === 'close') {
+      say = { text: 'It’s going a little fast. Slow week, maybe?', chips: [{ label: 'Show my budgets', pick: go('budgets') }] };
+    } else if (s.answer) {
+      say = { text: s.answer, chips: [{ label: 'Talk to Papi', pick: go('papi') }] };
+    } else if (deliveries >= 3) {
+      say = { text: 'Three deliveries since Friday. Busy few days?', chips: [{ label: 'Yes, busy', pick: () => this.answerPapi('busy') }, { label: 'I just like it', pick: () => this.answerPapi('like') }] };
+    } else {
+      say = { text: 'All quiet. I like quiet.', chips: [{ label: 'Talk to Papi', pick: go('papi') }] };
+    }
+
+    const parsed = this.parse(s.draft);
+    const draftCat = s.draftCat || (parsed && parsed.cat);
+    const chipStyle = (on, color) => css({ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '44px', padding: '0 14px', border: '0', borderRadius: '999px', fontSize: '15px', fontWeight: '600', background: on ? color : '#332C3B', color: on ? '#1C1822' : '#F7F1E8' });
+
+    const cats = CAT_KEYS.map((k) => {
+      const c = CATS[k];
+      const sp = this.catSpent(k);
+      const lim = s.limits[k];
+      const p = sp / lim * 100;
+      const over = sp > lim;
+      const near = !over && p >= 75;
+      const statusColor = over ? '#FF9E90' : near ? '#F6C156' : '#7BE3B5';
+      const change = (d) => () => this.setState((st) => ({ limits: Object.assign({}, st.limits, { [k]: Math.max(0, st.limits[k] + d) }) }));
+      return {
+        key: k, name: c.name, icon: c.icon, tile: tileCss(c.color),
+        status: over ? 'Over by ' + fmt(sp - lim) : (near ? 'Close, ' : '') + fmt(lim - sp) + ' left',
+        statusStyle: css({ color: statusColor, fontWeight: '600', fontSize: '15px', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }),
+        fill: css({ height: '100%', minHeight: '8px', borderRadius: '999px', background: over ? '#FF8B7B' : c.color, width: Math.min(100, p).toFixed(1) + '%', transition: 'width 400ms ease' }),
+        spentText: fmt(sp), limitText: fmt(lim) + ' KWD',
+        up: change(5000), down: change(-5000),
+        upLabel: 'Raise ' + c.name + ' budget by 5 KWD', downLabel: 'Lower ' + c.name + ' budget by 5 KWD'
+      };
+    });
+
+    const rowOf = (t) => ({
+      name: t.name, amount: fmt(t.fils), icon: CATS[t.cat].icon, tile: tileCss(CATS[t.cat].color), catName: CATS[t.cat].name,
+      when: t.day === TODAY ? 'Today' : t.day === TODAY - 1 ? 'Yesterday' : DAYS[t.day],
+      remove: () => this.removeTxn(t), removeLabel: 'Remove ' + t.name
+    });
+
+    const q = s.query.trim().toLowerCase();
+    const filtered = s.txns.filter((t) => (s.filter === 'all' || t.cat === s.filter) && (!q || t.name.toLowerCase().includes(q) || CATS[t.cat].name.toLowerCase().includes(q)));
+    const groups = [];
+    for (let d = TODAY; d >= 0; d--) {
+      const rows = filtered.filter((t) => t.day === d);
+      if (rows.length) groups.push({ label: d === TODAY ? 'Today' : d === TODAY - 1 ? 'Yesterday' : DAYS[d], total: fmt(rows.reduce((a, t) => a + t.fils, 0)) + ' KWD', rows: rows.map(rowOf) });
+    }
+
+    const allocated = CAT_KEYS.reduce((a, k) => a + s.limits[k], 0);
+    const diff = allocated - s.total;
+    const allocMax = Math.max(allocated, s.total);
+
+    const ranked = CAT_KEYS.map((k) => ({ k, sp: this.catSpent(k) })).sort((a, b) => b.sp - a.sp);
+    const topSp = ranked[0].sp || 1;
+    const dayTotals = DAYS.map((_, d) => s.txns.filter((t) => t.day === d).reduce((a, t) => a + t.fils, 0));
+    const allowance = Math.round(s.total / CYCLE_DAYS);
+    const dayMax = Math.max(allowance, Math.max.apply(null, dayTotals)) * 1.08;
+    const compareMax = Math.max(spent, LAST_MONTH_SO_FAR);
+    const vs = Math.round((spent - LAST_MONTH_SO_FAR) / LAST_MONTH_SO_FAR * 100);
+    const insightLine = vs < 0
+      ? 'You’ve spent ' + Math.abs(vs) + '% less than this point last month. ' + CATS[ranked[0].k].name + ' is your biggest category so far.'
+      : 'You’ve spent ' + vs + '% more than this point last month. ' + CATS[ranked[0].k].name + ' is your biggest category so far.';
+    const hd = s.hoverDay;
+
+    const navDefs = [['today', 'Today', 'M3 11l9-8 9 8M5 10v10h14V10'], ['spending', 'Spending', 'M4 6h16M4 12h16M4 18h10'], ['budgets', 'Budgets', 'M12 3a9 9 0 1 0 9 9h-9z'], ['insights', 'Insights', 'M5 20V11M12 20V4M19 20v-6'], ['papi', 'Papi', 'M5 3l3 5a8 8 0 0 1 8 0l3-5 1 11a8 8 0 0 1-16 0zM9 13h.01M15 13h.01M9.5 17c1-1 2-1 2.5 0 .5-1 1.5-1 2.5 0']];
+
+    return {
+      isDesktop: !compact, isCompact: compact,
+      isToday: s.screen === 'today', isSpending: s.screen === 'spending', isBudgets: s.screen === 'budgets', isInsights: s.screen === 'insights', isPapi: s.screen === 'papi',
+      rootStyle: css(compact
+        ? { position: 'relative', height: this.props.compact === true ? '844px' : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#1C1822', color: '#F7F1E8', fontFamily: "'Figtree', sans-serif" }
+        : { position: 'relative', minHeight: '100vh', background: '#1C1822', color: '#F7F1E8', fontFamily: "'Figtree', sans-serif" }),
+      mainStyle: css(compact
+        ? { flex: '1 1 auto', minHeight: '0', overflowY: 'auto', padding: '8px 16px 28px' }
+        : { maxWidth: '1280px', margin: '0 auto', padding: '18px 40px 56px', boxSizing: 'border-box' }),
+      h1: css({ margin: '0', fontFamily: FONT, fontWeight: '800', fontSize: compact ? '34px' : '46px', letterSpacing: '-0.025em', lineHeight: '1.05' }),
+      nav: navDefs.map((n) => {
+        const on = s.screen === n[0];
+        return {
+          label: n[1], icon: n[2], pick: go(n[0]), current: on ? 'page' : undefined, cls: on ? '' : 'pl-ghost',
+          style: css({ minHeight: '44px', padding: '0 20px', border: '0', borderRadius: '999px', fontWeight: '600', fontSize: '15px', background: on ? '#F7F1E8' : 'transparent', color: on ? '#1C1822' : '#F7F1E8' }),
+          phoneStyle: css({ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', minHeight: '54px', padding: '0', background: 'transparent', border: '0', borderRadius: '14px', color: on ? '#F6C156' : '#C5BBCF' })
+        };
+      }),
+      todayGrid: css({ display: 'grid', gridTemplateColumns: compact ? 'minmax(0, 1fr)' : 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: compact ? '24px' : '40px', alignItems: 'start' }),
+      hero,
+      heroStyle: css({ position: 'relative', background: bg, color: '#1C1822', borderRadius: compact ? '28px' : '36px', padding: compact ? '22px 22px 150px' : '34px 36px 40px', marginBottom: compact ? '68px' : '92px', minHeight: compact ? 'auto' : '250px', transition: 'background 500ms ease' }),
+      heroNumStyle: css({ fontFamily: FONT, fontWeight: '800', fontSize: compact ? '68px' : '100px', lineHeight: '1', letterSpacing: '-0.04em', marginTop: '6px', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }),
+      heroBarW: compact ? '100%' : '290px',
+      popClass: s.pulseKey ? 'pl-pop' : '',
+      wiggleClass: s.pulse ? 'pl-wiggle' : '',
+      disp: { whole: dispText[0], frac: dispText[1] },
+      loungeSrc: BLOB.lounge[mood],
+      loungeAlt: 'Papi the cat, ' + mood + ', lying on the card with his white paws hanging over the edge',
+      loungeStyle: css(compact
+        ? { position: 'absolute', right: '10px', bottom: '-58px', width: '250px', height: 'auto', pointerEvents: 'none' }
+        : { position: 'absolute', right: '20px', bottom: '-86px', width: '370px', height: 'auto', pointerEvents: 'none' }),
+      bustSrc: BLOB.bust[mood],
+      avatarStyle: css({ width: '76px', height: '76px', flex: 'none', borderRadius: '50%', overflow: 'hidden', background: bg, transition: 'background 500ms ease' }),
+      say,
+      draft: s.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value, draftCat: null }),
+      setInput: (el) => { this.input = el; },
+      submit: (e) => { e.preventDefault(); if (parsed) this.addTxn(parsed, draftCat); },
+      hasDraft: !!parsed, noDraft: !parsed,
+      draftName: parsed ? parsed.name : '',
+      addLabel: parsed ? 'Add ' + fmt(parsed.fils) : 'Add',
+      addStyle: css({ flex: 'none', height: '56px', padding: '0 22px', border: '0', borderRadius: '16px', fontWeight: '700', fontSize: '17px', fontVariantNumeric: 'tabular-nums', background: parsed ? '#F6C156' : '#3B3445', color: parsed ? '#1C1822' : '#C5BBCF', cursor: parsed ? 'pointer' : 'default' }),
+      draftCats: CAT_KEYS.map((k) => ({ name: CATS[k].name, icon: CATS[k].icon, on: draftCat === k, pick: () => this.setState({ draftCat: k }), style: chipStyle(draftCat === k, CATS[k].color) })),
+      usuals: [['Latte 1.750', '1.750 latte'], ['Taxi 2.500', '2.5 taxi'], ['Delivery 8.000', '8 delivery']].map((u) => ({ label: u[0], pick: () => { this.setState({ draft: u[1], draftCat: null }); if (this.input) this.input.focus(); } })),
+      cats,
+      glanceGrid: css({ display: 'grid', gridTemplateColumns: compact ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))', gap: '16px 32px' }),
+      latest: s.txns.slice(0, 6).map(rowOf),
+      goBudgets: go('budgets'), goSpending: go('spending'),
+      spendSummary: filtered.length + (filtered.length === 1 ? ' spending, ' : ' spendings, ') + fmt(filtered.reduce((a, t) => a + t.fils, 0)) + ' KWD',
+      query: s.query, onQuery: (e) => this.setState({ query: e.target.value }),
+      filters: [{ k: 'all', name: 'All', color: '#F7F1E8' }].concat(CAT_KEYS.map((k) => ({ k, name: CATS[k].name, color: CATS[k].color }))).map((f) => ({ name: f.name, on: s.filter === f.k, pick: () => this.setState({ filter: f.k }), style: chipStyle(s.filter === f.k, f.color) })),
+      groups, noResults: filtered.length === 0,
+      clearFilters: () => this.setState({ query: '', filter: 'all' }),
+      totalText: fmt(s.total),
+      totalUp: () => this.setState((st) => ({ total: st.total + 10000 })),
+      totalDown: () => this.setState((st) => ({ total: Math.max(10000, st.total - 10000) })),
+      alloc: CAT_KEYS.map((k) => ({ style: css({ flex: s.limits[k] + ' 1 0', minWidth: s.limits[k] ? '4px' : '0', background: CATS[k].color }) })).concat(diff < 0 ? [{ style: css({ flex: (-diff) + ' 1 0', background: 'transparent' }) }] : []),
+      allocMsg: diff === 0 ? 'Every dinar of the monthly total has a category.' : diff > 0 ? 'Your category budgets add up to ' + fmt(diff) + ' KWD more than your monthly total. Lower a category or raise the total.' : fmt(-diff) + ' KWD isn’t assigned to a category yet.',
+      allocMsgStyle: css({ margin: '12px 0 0', fontSize: '15px', fontWeight: '600', color: diff > 0 ? '#F6C156' : '#C5BBCF' }),
+      budgetGrid: css({ display: 'grid', gridTemplateColumns: compact ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))', gap: '20px' }),
+      insightLine,
+      insightGrid: css({ display: 'grid', gridTemplateColumns: compact ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))', gap: '20px' }),
+      ranked: ranked.map((r) => ({ name: CATS[r.k].name, amount: fmt(r.sp), share: spent ? Math.round(r.sp / spent * 100) : 0, bar: css({ height: '10px', minWidth: r.sp ? '4px' : '0', width: (r.sp / topSp * 100).toFixed(1) + '%', borderRadius: '0 4px 4px 0', background: CATS[r.k].color }) })),
+      days: dayTotals.map((v, d) => ({
+        short: DAYS[d].split(' ')[1],
+        hover: () => this.setState({ hoverDay: d }),
+        aria: DAYS[d] + ': ' + fmt(v) + ' KWD',
+        bar: css({ width: '100%', minHeight: v ? '3px' : '0', height: (v / dayMax * 100).toFixed(1) + '%', borderRadius: '4px 4px 0 0', background: hd === d ? '#F7F1E8' : d === TODAY ? '#F6C156' : '#A99EB5' })
+      })),
+      clearHover: () => this.setState({ hoverDay: null }),
+      dayReadout: hd === null ? 'Today so far: ' + fmt(dayTotals[TODAY]) + ' KWD' : DAYS[hd] + ': ' + fmt(dayTotals[hd]) + ' KWD',
+      allowanceBottom: (allowance / dayMax * 100).toFixed(1) + '%',
+      allowanceText: fmt(allowance),
+      compare: [{ name: 'This month', v: spent, color: '#F6C156' }, { name: 'Last month', v: LAST_MONTH_SO_FAR, color: '#A99EB5' }].map((r) => ({ name: r.name, amount: fmt(r.v), bar: css({ height: '14px', width: (r.v / compareMax * 100).toFixed(1) + '%', borderRadius: '0 4px 4px 0', background: r.color }) })),
+      biggest: s.txns.slice().sort((a, b) => b.fils - a.fils).slice(0, 3).map(rowOf),
+      papiGrid: css({ display: 'grid', gridTemplateColumns: compact ? 'minmax(0, 1fr)' : 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '32px', maxWidth: '1040px', margin: '0 auto' }),
+      chat: s.chat.map((m) => ({ text: m.text, style: css(m.who === 'papi'
+        ? { alignSelf: 'flex-start', maxWidth: '82%', background: '#27222E', padding: '12px 16px', borderRadius: '18px 18px 18px 6px', fontFamily: FONT, fontSize: '19px', fontWeight: '500', lineHeight: '1.3' }
+        : { alignSelf: 'flex-end', maxWidth: '82%', background: '#F7F1E8', color: '#1C1822', padding: '12px 16px', borderRadius: '18px 18px 6px 18px', fontSize: '16px', fontWeight: '500', lineHeight: '1.35' }) })),
+      prompts: (s.answer ? [] : [{ label: 'Yes, busy', pick: () => this.answerPapi('busy') }, { label: 'I just like it', pick: () => this.answerPapi('like') }])
+        .concat(['Can I afford a 40 KWD bag?', 'Where did most of it go?', 'How’s my month going?', 'How much do you cost me?'].map((label) => ({ label, pick: () => this.sendQuestion(label) }))),
+      ask: s.ask, onAsk: (e) => this.setState({ ask: e.target.value }),
+      askSubmit: (e) => { e.preventDefault(); this.sendQuestion(s.ask); },
+      memory: s.memory.map((text, i) => ({ text, forget: () => this.setState((st) => ({ memory: st.memory.filter((_, j) => j !== i) })) })),
+      noMemory: s.memory.length === 0,
+      hasToast: !!s.toast, toast: s.toast || { text: '' },
+      undo: () => s.toast && s.toast.undoFn(),
+      toastStyle: css({ position: 'fixed', left: '50%', bottom: compact ? '84px' : '28px', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 8px 4px 18px', background: '#F7F1E8', color: '#1C1822', borderRadius: '999px', whiteSpace: 'nowrap', zIndex: '20', boxShadow: '0 8px 28px rgba(0, 0, 0, 0.45)' })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T12:30:00Z" },
+  "title": "Budget Tracker with Papi",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1120, "title": "Today on desktop (try it)", "expand": "fill", "is_interactive": true },
+    "PhoneTrack.dc.html": { "x": 1520, "y": 0, "w": 390, "h": 844, "title": "Phone: on track", "is_interactive": true },
+    "PhoneClose.dc.html": { "x": 1990, "y": 0, "w": 390, "h": 844, "title": "Phone: getting close", "is_interactive": true },
+    "PhoneOver.dc.html": { "x": 2460, "y": 0, "w": 390, "h": 844, "title": "Phone: over budget", "is_interactive": true },
+    "Spending.dc.html": { "x": 0, "y": 1240, "w": 1440, "h": 1905, "title": "Spending", "is_interactive": true },
+    "Budgets.dc.html": { "x": 1520, "y": 1240, "w": 1440, "h": 1120, "title": "Budgets", "is_interactive": true },
+    "Insights.dc.html": { "x": 3040, "y": 1240, "w": 1440, "h": 1120, "title": "Insights", "is_interactive": true },
+    "Advisor.dc.html": { "x": 4560, "y": 1240, "w": 1440, "h": 1120, "title": "Talking to Papi", "is_interactive": true },
+    "Papi.dc.html": { "x": 2930, "y": 0, "w": 1440, "h": 760, "title": "Papi's moods" }
+  },
+  "order": ["Main.dc.html", "PhoneTrack.dc.html", "PhoneClose.dc.html", "PhoneOver.dc.html", "Spending.dc.html", "Budgets.dc.html", "Insights.dc.html", "Advisor.dc.html", "Papi.dc.html"],
+  "notes": {},
+  "designSystems": []
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Papi's moods</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Figtree:wght@400;500;600;700&amp;display=swap">
+<style>body { margin: 0; background: #1C1822; }</style>
+</helmet>
+<div style="width: 1440px; height: 760px; box-sizing: border-box; padding: 64px; background: #1C1822; color: #F7F1E8; font-family: 'Figtree', sans-serif; display: flex; flex-direction: column; gap: 40px;">
+  <div>
+    <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 72px; letter-spacing: -0.03em; line-height: 1;">Papi</h1>
+    <p style="margin: 12px 0 0; font-size: 22px; line-height: 1.4; color: #C5BBCF; max-width: 760px;">Quiet, curious and warm. A little needy, a little playful. He says very little and notices everything. He never shames you.</p>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px;">
+    <sc-for list="{{moods}}" as="m" hint-placeholder-count="5">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="{{m.tile}}"><img src="{{m.src}}" alt="{{m.alt}}" style="width: 100%; display: block;"></div>
+        <div>
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 24px; font-weight: 700;">{{m.name}}</h2>
+          <p style="margin: 4px 0 8px; font-size: 15px; line-height: 1.35; color: #C5BBCF;">{{m.when}}</p>
+          <p style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 500; line-height: 1.25;">{{m.line}}</p>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const list = [
+      ['Content', 'You are on track and he has no questions.', 'All quiet. I like quiet.', '#7BE3B5', '/_blob/85f42c148154e7d747da6b05d85d202a'],
+      ['Curious', 'He spotted a pattern and wants to understand it.', 'Three deliveries since Friday. Busy few days?', '#6CC4FF', '/_blob/1dcbf01a5f9e0b4b8ccae84217ef7ab4'],
+      ['Needy', 'Spending is running fast, or you have gone quiet.', 'It’s going a little fast. Slow week, maybe?', '#F6C156', '/_blob/e10617c3c508bac9b1f42f6c59621c54'],
+      ['Playful', 'You just logged something.', 'For me? Do it again.', '#B79CFF', '/_blob/a013a81566994ee6cbbdd389b6e4f3b4'],
+      ['Worried', 'You have gone over budget.', 'We went past the budget. Want to look at it together?', '#FF8B7B', '/_blob/36c1db56a36ce947897d67b6c812d192']
+    ];
+    return { moods: list.map((m) => ({ name: m[0], when: m[1], line: m[2], src: m[4], alt: 'Papi looking ' + m[0].toLowerCase(), tile: 'border-radius: 28px; overflow: hidden; background: ' + m[3] + ';' })) };
+  }
+}
+</script>
+</body>
+</html>
