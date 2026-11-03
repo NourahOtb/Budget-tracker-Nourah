@@ -9,7 +9,7 @@ import { EMPTY_DATA, type AppData, type Spending } from "./types";
 type Tables = {
   profile: { name: string; total_fils: number | null; payday: number | null } | null;
   limits: { category: CatKey; limit_fils: number }[];
-  spendings: { id: string; name: string; category: CatKey; fils: number; spent_on: string; created_at: string }[];
+  spendings: { id: string; name: string; category: CatKey; fils: number; spent_on: string; created_at: string; photo_path: string | null }[];
   memory: { id: string; text: string; position: number }[];
   chat: { position: number; who: "papi" | "you"; text: string }[];
   answered: { question_id: string }[];
@@ -31,6 +31,7 @@ function toAppData(t: Tables): AppData {
       fils: Number(s.fils),
       date: s.spent_on,
       createdAt: Date.parse(s.created_at),
+      photo: s.photo_path,
     })),
     memory: [...t.memory].sort((a, b) => a.position - b.position).map((m) => ({ id: m.id, text: m.text })),
     chat: [...t.chat].sort((a, b) => a.position - b.position).map((m) => ({ who: m.who, text: m.text })),
@@ -45,10 +46,11 @@ const spendingRow = (s: Spending) => ({
   fils: s.fils,
   spent_on: s.date,
   created_at: new Date(s.createdAt).toISOString(),
+  photo_path: s.photo ?? null,
 });
 
 const sameSpending = (a: Spending, b: Spending) =>
-  a.name === b.name && a.cat === b.cat && a.fils === b.fils && a.date === b.date && a.createdAt === b.createdAt;
+  a.name === b.name && a.cat === b.cat && a.fils === b.fils && a.date === b.date && a.createdAt === b.createdAt && (a.photo ?? null) === (b.photo ?? null);
 
 function check<T extends { error: unknown }>(res: T): T {
   if (res.error) throw res.error;
@@ -65,18 +67,36 @@ const TABLES: [string, string][] = [
   ["profile", "id"],
 ];
 
+const BUCKET = "spending-photos";
+// How long a photo outlives the spending that used it, so Undo can bring it back.
+const PHOTO_GRACE_MS = 15_000;
+
 export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStore {
   // What the database holds, as far as this browser knows.
   let saved: AppData = { ...EMPTY_DATA };
   // Saves run one after another so they never race.
   let queue: Promise<void> = Promise.resolve();
 
+  // Deletes photos no spending uses any more, once Undo has had its chance.
+  function forgetPhotos(paths: string[]) {
+    if (!paths.length) return;
+    setTimeout(() => {
+      const inUse = new Set(saved.spendings.map((s) => s.photo).filter(Boolean));
+      const unused = paths.filter((p) => !inUse.has(p));
+      if (unused.length) {
+        void db.storage.from(BUCKET).remove(unused).then(({ error }) => {
+          if (error) console.error("Purrse: deleting photos failed", error);
+        });
+      }
+    }, PHOTO_GRACE_MS);
+  }
+
   async function fetchAll(): Promise<AppData> {
     const [profile, limits, spendings, memory, chat, answered] = (
       await Promise.all([
         db.from("profile").select("name, total_fils, payday").maybeSingle(),
         db.from("category_limits").select("category, limit_fils"),
-        db.from("spendings").select("id, name, category, fils, spent_on, created_at"),
+        db.from("spendings").select("id, name, category, fils, spent_on, created_at, photo_path"),
         db.from("papi_memory").select("id, text, position"),
         db.from("chat_messages").select("position, who, text"),
         db.from("answered_questions").select("question_id"),
@@ -118,6 +138,8 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
       const removed = prev.spendings.filter((s) => !now.has(s.id)).map((s) => s.id);
       if (changed.length) check(await db.from("spendings").upsert(changed.map(spendingRow)));
       if (removed.length) check(await db.from("spendings").delete().in("id", removed));
+      const stillUsed = new Set(next.spendings.map((s) => s.photo));
+      forgetPhotos([...new Set(prev.spendings.map((s) => s.photo).filter((p): p is string => !!p && !stillUsed.has(p)))]);
     }
 
     if (next.memory !== prev.memory) {
@@ -149,6 +171,19 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
   }
 
   return {
+    photos: {
+      async upload(image) {
+        const ext = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error } = await db.storage.from(BUCKET).upload(path, image, { contentType: image.type || "image/jpeg" });
+        if (error) throw error;
+        return path;
+      },
+      url(path) {
+        return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      },
+    },
+
     async load() {
       try {
         saved = await fetchAll();
@@ -184,6 +219,8 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
         const { error } = await db.from(table).delete().not(key, "is", null);
         if (error) console.error(`Purrse: clearing ${table} failed`, error);
       }
+      const photos = saved.spendings.map((s) => s.photo).filter((p): p is string => !!p);
+      if (photos.length) await db.storage.from(BUCKET).remove(photos);
       saved = { ...EMPTY_DATA };
       await fallback.clear();
     },

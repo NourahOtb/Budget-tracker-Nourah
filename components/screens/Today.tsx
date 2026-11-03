@@ -8,10 +8,12 @@ import { CATEGORIES, type CatKey } from "@/lib/categories";
 import { relativeDay } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { papiLine } from "@/lib/papi";
+import { shrinkImage } from "@/lib/image";
 import { parseQuickAdd } from "@/lib/quickAdd";
 import { usuals } from "@/lib/summary";
 import type { Spending } from "@/lib/types";
 import { useReady } from "../AppProvider";
+import { PhotoButton, usePickedPhoto } from "../PhotoPicker";
 import { SpendingEditor } from "../SpendingEditor";
 import { SpendingRow } from "../SpendingRow";
 import { CatTile, Icon, PapiBust } from "../ui";
@@ -88,20 +90,37 @@ function Hero() {
 }
 
 function AddForm() {
-  const { addSpending, data } = useReady();
+  const { addSpending, data, photos } = useReady();
   const [draft, setDraft] = useState("");
   const [draftCat, setDraftCat] = useState<CatKey | null>(null);
+  const photo = usePickedPhoto();
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const parsed = parseQuickAdd(draft);
   const cat = draftCat ?? parsed?.cat ?? null;
   const usual = useMemo(() => usuals(data.spendings), [data.spendings]);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!parsed || !cat) return;
-    addSpending({ name: parsed.name, fils: parsed.fils, cat });
+    if (!parsed || !cat || uploading) return;
+    let path: string | null = null;
+    if (photo.file && photos) {
+      setUploading(true);
+      setPhotoError("");
+      try {
+        path = await photos.upload(await shrinkImage(photo.file));
+      } catch {
+        setPhotoError("The photo didn’t upload. Try again, or remove it to add without a photo.");
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+    addSpending({ name: parsed.name, fils: parsed.fils, cat, photo: path });
     setDraft("");
     setDraftCat(null);
+    photo.setFile(null);
   };
 
   return (
@@ -123,13 +142,37 @@ function AddForm() {
           autoComplete="off"
           aria-describedby="add-hint"
         />
-        <button type="submit" className={parsed ? "btn-solid add-btn" : "btn-off add-btn"} disabled={!parsed}>
-          {parsed ? `Add ${fmt(parsed.fils)}` : "Add"}
+        {photos && (
+          <PhotoButton
+            label={photo.file ? "Change photo" : "Add a photo"}
+            onPick={(f) => {
+              photo.setFile(f);
+              setPhotoError("");
+            }}
+          />
+        )}
+        <button type="submit" className={parsed && !uploading ? "btn-solid add-btn" : "btn-off add-btn"} disabled={!parsed || uploading}>
+          {uploading ? "Saving…" : parsed ? `Add ${fmt(parsed.fils)}` : "Add"}
         </button>
       </div>
       <p id="add-hint" className="sr-only">
         Type an amount and what it was for, like 4.5 coffee.
       </p>
+      {photo.preview && (
+        <div className="photo-draft">
+          {/* eslint-disable-next-line @next/next/no-img-element -- local preview of a picked file */}
+          <img src={photo.preview} alt="Photo to attach" />
+          <span className="muted">Photo will be added with this spending.</span>
+          <button type="button" className="link-btn" onClick={() => photo.setFile(null)}>
+            Remove photo
+          </button>
+        </div>
+      )}
+      {photoError && (
+        <p className="field-error" role="alert">
+          {photoError}
+        </p>
+      )}
       {parsed ? (
         <div className="add-cats">
           <p className="muted">{parsed.name} goes in:</p>

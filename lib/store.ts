@@ -9,6 +9,12 @@ export interface DataStore {
   load(): Promise<AppData>;
   save(data: AppData): Promise<void>;
   clear(): Promise<void>;
+  /** Photo storage, when the store has somewhere to put them. */
+  photos?: {
+    /** Uploads an image and returns its storage path. */
+    upload(image: Blob): Promise<string>;
+    url(path: string): string;
+  };
 }
 
 const KEY = "purrse:v1";

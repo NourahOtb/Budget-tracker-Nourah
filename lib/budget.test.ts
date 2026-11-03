@@ -120,6 +120,8 @@ describe("quick add", () => {
     expect(parseQuickAdd("300 handbag")?.cat).toBe("shopping");
     expect(parseQuickAdd("40 vacation")?.cat).toBe("fun");
     expect(parseQuickAdd("3 steak")?.cat).toBe("fun");
+    expect(parseQuickAdd("120 new TV")?.cat).toBe("shopping");
+    expect(parseQuickAdd("25 headphones")?.cat).toBe("shopping");
     expect(parseQuickAdd("20")).toEqual({ fils: 20000, name: "Something", cat: "fun" });
     expect(parseQuickAdd("coffee")).toBeNull();
   });

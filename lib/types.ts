@@ -10,6 +10,8 @@ export type Spending = {
   date: DateKey;
   /** Milliseconds; orders spendings within the same day. */
   createdAt: number;
+  /** Path of a photo in storage, if one was added. */
+  photo?: string | null;
 };
 
 export type Settings = {

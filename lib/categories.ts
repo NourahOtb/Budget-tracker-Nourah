@@ -32,7 +32,7 @@ export const KEYWORDS: Record<CatKey, string[]> = {
   food: ["coffee", "latte", "tea", "karak", "lunch", "dinner", "breakfast", "shawarma", "burger", "sushi", "pizza", "delivery", "grocer", "restaurant", "cafe", "snack", "food"],
   transport: ["taxi", "uber", "careem", "fuel", "petrol", "parking", "bus", "car"],
   fun: ["cinema", "movie", "game", "concert", "gift", "netflix", "spotify", "trip"],
-  shopping: ["shoes", "bag", "dress", "clothes", "makeup", "beads", "shirt", "perfume"],
+  shopping: ["shoes", "bag", "dress", "clothes", "makeup", "beads", "shirt", "perfume", "tv", "laptop", "headphone", "electronics"],
   papi: ["papi", "cat", "litter", "treat", "vet", "kibble", "toy"],
   bills: ["rent", "phone", "internet", "gym", "electric", "water", "insurance"],
 };

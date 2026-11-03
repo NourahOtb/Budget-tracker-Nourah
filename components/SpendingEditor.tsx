@@ -5,7 +5,9 @@ import { CATEGORIES, type CatKey } from "@/lib/categories";
 import { type DateKey } from "@/lib/dates";
 import { fmt, parseKwd } from "@/lib/money";
 import type { Spending } from "@/lib/types";
+import { shrinkImage } from "@/lib/image";
 import { useApp } from "./AppProvider";
+import { PhotoButton, usePickedPhoto } from "./PhotoPicker";
 import { ICONS, Icon } from "./ui";
 
 /** Dialog for changing a spending's name, amount, category and date. */
@@ -27,20 +29,36 @@ export function SpendingEditor({ spending, onClose }: { spending: Spending | nul
 }
 
 function EditorForm({ spending, onClose }: { spending: Spending; onClose: () => void }) {
-  const { updateSpending, removeSpending, today } = useApp();
+  const { updateSpending, removeSpending, today, photos } = useApp();
   const [name, setName] = useState(spending.name);
   const [amount, setAmount] = useState(fmt(spending.fils));
   const [cat, setCat] = useState<CatKey>(spending.cat);
   const [date, setDate] = useState<DateKey>(spending.date);
   const [error, setError] = useState("");
+  const picked = usePickedPhoto();
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const current = spending.photo && !removePhoto && photos ? photos.url(spending.photo) : null;
+  const shown = picked.preview ?? current;
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     const fils = parseKwd(amount);
     if (!name.trim()) return setError("Give it a name, like Coffee.");
     if (!fils) return setError("Type the amount in KWD, like 4.5.");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) return setError("Pick a date up to today.");
-    updateSpending({ ...spending, name: name.trim(), fils, cat, date });
+    let photo = removePhoto ? null : (spending.photo ?? null);
+    if (picked.file && photos) {
+      setSaving(true);
+      try {
+        photo = await photos.upload(await shrinkImage(picked.file));
+      } catch {
+        setSaving(false);
+        return setError("The photo didn’t upload. Try again, or remove it.");
+      }
+    }
+    updateSpending({ ...spending, name: name.trim(), fils, cat, date, photo });
     onClose();
   };
 
@@ -97,6 +115,40 @@ function EditorForm({ spending, onClose }: { spending: Spending; onClose: () => 
         </div>
       </fieldset>
 
+      {photos && (
+        <div className="edit-photo">
+          <p className="field-label">Photo</p>
+          {shown ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- photo from storage or a local preview */}
+              <img src={shown} alt={`Photo of ${name || "this spending"}`} className="photo-full" />
+              <div className="chips">
+                <PhotoButton label="Replace photo" className="btn-ghost photo-ghost" onPick={(f) => picked.setFile(f)} />
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    picked.setFile(null);
+                    setRemovePhoto(true);
+                  }}
+                >
+                  Remove photo
+                </button>
+              </div>
+            </>
+          ) : (
+            <PhotoButton
+              label="Add a photo"
+              className="btn-ghost photo-ghost"
+              onPick={(f) => {
+                picked.setFile(f);
+                setRemovePhoto(false);
+              }}
+            />
+          )}
+        </div>
+      )}
+
       {error && (
         <p className="field-error" role="alert">
           {error}
@@ -118,8 +170,8 @@ function EditorForm({ spending, onClose }: { spending: Spending; onClose: () => 
         <button type="button" className="btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button type="submit" className="btn-solid">
-          Save
+        <button type="submit" className="btn-solid" disabled={saving}>
+          {saving ? "Saving…" : "Save"}
         </button>
       </div>
     </form>

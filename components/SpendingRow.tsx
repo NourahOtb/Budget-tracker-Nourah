@@ -21,7 +21,15 @@ export function SpendingRow({
     <>
       <CatTile cat={t.cat} />
       <span className="row-text">
-        <span className="row-name">{t.name}</span>
+        <span className="row-name">
+          {t.name}
+          {t.photo && (
+            <span className="row-photo" title="Has a photo">
+              <Icon d={ICONS.camera} size={15} />
+              <span className="sr-only">, has a photo</span>
+            </span>
+          )}
+        </span>
         <span className="row-sub">{sub}</span>
       </span>
       <span className="row-amount">{fmt(t.fils)}</span>
@@ -30,7 +38,7 @@ export function SpendingRow({
   return (
     <li className="row">
       {onEdit ? (
-        <button type="button" className="row-main" onClick={onEdit} aria-label={`Edit ${t.name}, ${CAT[t.cat].name}, ${fmt(t.fils)} KWD, ${sub}`}>
+        <button type="button" className="row-main" onClick={onEdit} aria-label={`Edit ${t.name}, ${CAT[t.cat].name}, ${fmt(t.fils)} KWD, ${sub}${t.photo ? ", has a photo" : ""}`}>
           {body}
         </button>
       ) : (

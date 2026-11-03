@@ -6,7 +6,7 @@ import { CAT, type CatKey } from "@/lib/categories";
 import { ordinal, todayKey, type DateKey } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { findQuestion, papiReply, type PapiQuestion } from "@/lib/papi";
-import { newId, store } from "@/lib/store";
+import { newId, store, type DataStore } from "@/lib/store";
 import { summarize, type Summary } from "@/lib/summary";
 import { EMPTY_DATA, type AppData, type Settings, type Spending } from "@/lib/types";
 
@@ -27,9 +27,11 @@ type AppCtx = {
   lastAnswer: string | null;
   toast: Toast | null;
   papiTyping: boolean;
+  /** Photo storage, or null when the store can't hold photos (no Supabase). */
+  photos: DataStore["photos"] | null;
   setName(name: string): void;
   saveSettings(settings: Settings): void;
-  addSpending(s: { name: string; fils: number; cat: CatKey; date?: DateKey }): void;
+  addSpending(s: { name: string; fils: number; cat: CatKey; date?: DateKey; photo?: string | null }): void;
   updateSpending(s: Spending): void;
   removeSpending(s: Spending): void;
   answerQuestion(q: PapiQuestion, index: number): void;
@@ -152,8 +154,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const addSpending = useCallback<AppCtx["addSpending"]>(
-    ({ name, fils, cat, date }) => {
-      const t: Spending = { id: newId(), name, fils, cat, date: date ?? todayKey(), createdAt: Date.now() };
+    ({ name, fils, cat, date, photo }) => {
+      const t: Spending = { id: newId(), name, fils, cat, date: date ?? todayKey(), createdAt: Date.now(), photo: photo ?? null };
       update((d) => ({ ...d, spendings: [t, ...d.spendings] }));
       setLastAnswer(null);
       setPulse(cat);
@@ -262,6 +264,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lastAnswer,
     toast,
     papiTyping,
+    photos: store.photos ?? null,
     setName,
     saveSettings,
     addSpending,
