@@ -21,6 +21,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const app = useApp();
   const path = usePathname();
 
+  if (app.loadFailed) {
+    return (
+      <main className="welcome">
+        <div className="welcome-card" role="alert">
+          <PapiBust mood="worried" size={130} bg="var(--coral)" />
+          <h1 className="welcome-title">Papi can’t reach your budget</h1>
+          <p className="welcome-sub">Check your internet connection, then try again. Nothing was lost.</p>
+          <button type="button" className="btn-solid btn-wide" onClick={app.retry}>
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
   if (!app.loaded) return <div className="splash" aria-busy="true" />;
   if (!app.data.profile) return <NameEntry />;
   if (!app.settings || !app.summary) return <Setup />;

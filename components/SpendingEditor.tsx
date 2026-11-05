@@ -37,7 +37,21 @@ function EditorForm({ spending, onClose }: { spending: Spending; onClose: () => 
   const picked = usePickedPhoto();
   const [removePhoto, setRemovePhoto] = useState(false);
   const [saving, setSaving] = useState(false);
-  const current = spending.photo && !removePhoto && photos ? photos.url(spending.photo) : null;
+  // Photos are private, so each one is shown through a short-lived link.
+  const [link, setLink] = useState<{ path: string; url: string } | null>(null);
+  useEffect(() => {
+    if (!spending.photo || !photos) return;
+    let alive = true;
+    const path = spending.photo;
+    photos.url(path).then(
+      (url) => alive && setLink({ path, url }),
+      (err) => console.error("Purrse: photo link failed", err),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [spending.photo, photos]);
+  const current = spending.photo && !removePhoto && link?.path === spending.photo ? link.url : null;
   const shown = picked.preview ?? current;
 
   const submit = async (e: FormEvent) => {

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
-import { AppProvider } from "@/components/AppProvider";
+import { AuthGate } from "@/components/Auth";
 import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
@@ -16,8 +16,8 @@ const figtree = Figtree({
   weight: ["400", "500", "600", "700"],
 });
 
-// Every screen is built from data saved in the visitor's browser, so pages
-// render after that loads rather than during prerender.
+// Every screen is built from the signed-in person's data, so pages render
+// after that loads rather than during prerender.
 export const instant = false;
 
 export const metadata: Metadata = {
@@ -35,9 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${bricolage.variable} ${figtree.variable}`}>
       <body>
-        <AppProvider>
+        <AuthGate>
           <AppShell>{children}</AppShell>
-        </AppProvider>
+        </AuthGate>
       </body>
     </html>
   );

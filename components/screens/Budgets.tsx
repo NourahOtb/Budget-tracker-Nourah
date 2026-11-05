@@ -10,6 +10,7 @@ import { AllocationMessage } from "../Allocation";
 import { NewCategoryField, categoryNameProblem } from "../Setup";
 import { CatTile, ICONS, Icon } from "../ui";
 import { CategoryBar, CategoryStatus } from "./Today";
+import { useAuth } from "../Auth";
 
 export function BudgetsScreen() {
   const { summary: s, settings, saveSettings, categories } = useReady();
@@ -31,7 +32,7 @@ export function BudgetsScreen() {
           ))}
           {allocated < settings.total && <div style={{ flex: `${(settings.total - allocated) / scale} 1 0` }} />}
         </div>
-        <AllocationMessage total={settings.total} allocated={allocated} />
+        <AllocationMessage total={settings.total} allocated={allocated} onRaise={() => saveSettings({ ...settings, total: allocated })} />
       </section>
 
       <div className="two-grid">
@@ -229,29 +230,32 @@ function CategoryHead({
   return (
     <div className="budget-head">
       <CatTile cat={c} />
-      <h2 id={`b-${c.id}`} className="h2 grow">
-        {c.name}
-      </h2>
-      <div className="head-side">
-        <CategoryStatus spent={spent} limit={c.limit} />
-        <div className="cat-actions">
+      <div className="cat-name">
+        <h2 id={`b-${c.id}`} className="h2">
+          {c.name}
+        </h2>
         <button
           type="button"
-          className="icon-btn"
+          className="icon-btn rename-btn"
           aria-label={`Rename ${c.name}`}
+          title="Rename category"
           onClick={() => {
             setText(c.name);
             setEditing(true);
           }}
         >
-          <Icon d={ICONS.pencil} size={18} />
+          <Icon d={ICONS.pencil} size={16} />
         </button>
+      </div>
+      <div className="head-side">
+        <CategoryStatus spent={spent} limit={c.limit} />
         {canDelete && (
-          <button type="button" className="icon-btn" aria-label={`Delete ${c.name}`} onClick={onDelete}>
-            <Icon d={ICONS.trash} size={18} />
-          </button>
+          <div className="cat-actions">
+            <button type="button" className="icon-btn" aria-label={`Delete ${c.name}`} title="Delete category" onClick={onDelete}>
+              <Icon d={ICONS.trash} size={18} />
+            </button>
+          </div>
         )}
-        </div>
       </div>
     </div>
   );
@@ -366,6 +370,8 @@ function DeleteCategoryDialog({ category, onClose }: { category: Category | null
 
 function Details() {
   const { name, settings, setName, saveSettings, resetAll } = useReady();
+  const auth = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
   const [nameText, setNameText] = useState(name);
   const [payday, setPayday] = useState(settings.payday);
   const [saved, setSaved] = useState(false);
@@ -428,19 +434,41 @@ function Details() {
       <p role="status" className="muted details-status">
         {saved ? "Saved. Papi noted it." : ""}
       </p>
+      {auth && (
+        <div className="account-zone">
+          <p className="muted">
+            Signed in as <strong className="account-email">{auth.email}</strong>. Signing out keeps everything safe for next time.
+          </p>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={signingOut}
+            onClick={async () => {
+              setSigningOut(true);
+              try {
+                await auth.signOut();
+              } catch {
+                setSigningOut(false);
+              }
+            }}
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      )}
       <div className="danger-zone">
         <p className="muted">
-          Not {name}, or want a fresh start? Signing out deletes this name, the budgets, every spending and photo, and Papi’s notes, on every device. Then
+          Want a fresh start? This erases your name, budgets, every spending and photo, and Papi’s notes{auth ? ", but keeps your account" : ""}. Then
           Papi asks for a name again.
         </p>
         <button
           type="button"
           className="btn-ghost danger"
           onClick={() => {
-            if (window.confirm(`Sign out ${name} and start over? This deletes everything on every device and can’t be undone.`)) void resetAll();
+            if (window.confirm(`Erase all of ${name}’s data and start over? This can’t be undone.`)) void resetAll();
           }}
         >
-          Sign out and start over
+          Erase my data and start over
         </button>
       </div>
     </section>

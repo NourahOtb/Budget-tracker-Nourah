@@ -1,5 +1,6 @@
-// Supabase version of the DataStore. Purrse has a single user and no sign-in,
-// so there is one shared set of rows: the same data on every device.
+// Supabase version of the DataStore, for one signed-in person. Row level
+// security means they can only ever read or change their own rows, and
+// photos live in a private folder named after their user id.
 // Saves send only what changed since the last successful save.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Category } from "./categories";
@@ -69,14 +70,15 @@ const TABLES: [string, string][] = [
   ["papi_memory", "id"],
   ["chat_messages", "position"],
   ["answered_questions", "question_id"],
-  ["profile", "id"],
+  ["profile", "user_id"],
 ];
 
 const BUCKET = "spending-photos";
 // How long a photo outlives the spending that used it, so Undo can bring it back.
 const PHOTO_GRACE_MS = 15_000;
 
-export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStore {
+export function supabaseStore(db: SupabaseClient, userId: string): DataStore {
+  const mine = <T extends object>(row: T) => ({ ...row, user_id: userId });
   // What the database holds, as far as this browser knows.
   let saved: AppData = { ...EMPTY_DATA };
   // Saves run one after another so they never race.
@@ -123,7 +125,7 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
     if (next.profile && (next.profile !== prev.profile || next.settings !== prev.settings)) {
       check(
         await db.from("profile").upsert({
-          id: 1,
+          user_id: userId,
           name: next.profile.name,
           total_fils: next.settings?.total ?? null,
           payday: next.settings?.payday ?? null,
@@ -142,7 +144,7 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
           const b = before.get(c.id);
           return !b || b.i !== position || !sameCategory(b.c, c);
         })
-        .map(({ c, position }) => ({ id: c.id, name: c.name, color: c.color, icon: c.icon, limit_fils: c.limit, position }));
+        .map(({ c, position }) => mine({ id: c.id, name: c.name, color: c.color, icon: c.icon, limit_fils: c.limit, position }));
       if (rows.length) check(await db.from("categories").upsert(rows));
     }
 
@@ -151,7 +153,7 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
       const now = new Set(next.spendings.map((s) => s.id));
       const changed = next.spendings.filter((s) => !before.has(s.id) || !sameSpending(before.get(s.id)!, s));
       const removed = prev.spendings.filter((s) => !now.has(s.id)).map((s) => s.id);
-      if (changed.length) check(await db.from("spendings").upsert(changed.map(spendingRow)));
+      if (changed.length) check(await db.from("spendings").upsert(changed.map((x) => mine(spendingRow(x)))));
       if (removed.length) check(await db.from("spendings").delete().in("id", removed));
       const stillUsed = new Set(next.spendings.map((s) => s.photo));
       forgetPhotos([...new Set(prev.spendings.map((s) => s.photo).filter((p): p is string => !!p && !stillUsed.has(p)))]);
@@ -169,7 +171,7 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
       const removed = prev.memory.filter((m) => !now.has(m.id)).map((m) => m.id);
       if (removed.length) check(await db.from("papi_memory").delete().in("id", removed));
       if (next.memory.length) {
-        check(await db.from("papi_memory").upsert(next.memory.map((m, position) => ({ id: m.id, text: m.text, position }))));
+        check(await db.from("papi_memory").upsert(next.memory.map((m, position) => mine({ id: m.id, text: m.text, position }))));
       }
     }
 
@@ -180,13 +182,13 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
         check(await db.from("chat_messages").delete().gte("position", 0));
         from = 0;
       }
-      const rows = next.chat.slice(from).map((m, i) => ({ position: from + i, who: m.who, text: m.text }));
+      const rows = next.chat.slice(from).map((m, i) => mine({ position: from + i, who: m.who, text: m.text }));
       if (rows.length) check(await db.from("chat_messages").upsert(rows));
     }
 
     if (next.answered !== prev.answered) {
       const fresh = next.answered.filter((q) => !prev.answered.includes(q));
-      if (fresh.length) check(await db.from("answered_questions").upsert(fresh.map((question_id) => ({ question_id }))));
+      if (fresh.length) check(await db.from("answered_questions").upsert(fresh.map((question_id) => mine({ question_id }))));
     }
 
     saved = next;
@@ -196,32 +198,23 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
     photos: {
       async upload(image) {
         const ext = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
-        const path = `${crypto.randomUUID()}.${ext}`;
+        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
         const { error } = await db.storage.from(BUCKET).upload(path, image, { contentType: image.type || "image/jpeg" });
         if (error) throw error;
         return path;
       },
-      url(path) {
-        return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      async url(path) {
+        const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
+        if (error) throw error;
+        return data.signedUrl;
       },
     },
 
     async load() {
-      try {
-        saved = await fetchAll();
-        if (saved.profile) return saved;
-        // Nothing in Supabase yet: bring over anything this browser saved locally.
-        const local = await fallback.load();
-        if (local.profile) {
-          await write(local);
-          await fallback.clear();
-        }
-        return local;
-      } catch (err) {
-        // Supabase unreachable: show what this browser has rather than nothing.
-        console.error("Purrse: loading from Supabase failed", err);
-        return fallback.load();
-      }
+      // Errors reach the app, which offers to try again. Showing empty data
+      // instead would let the next save overwrite what's really there.
+      saved = await fetchAll();
+      return saved;
     },
 
     save(data) {
@@ -244,7 +237,6 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
       const photos = saved.spendings.map((s) => s.photo).filter((p): p is string => !!p);
       if (photos.length) await db.storage.from(BUCKET).remove(photos);
       saved = { ...EMPTY_DATA };
-      await fallback.clear();
     },
   };
 }

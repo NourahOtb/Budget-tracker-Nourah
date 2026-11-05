@@ -6,7 +6,7 @@ import { byId, UNKNOWN_CATEGORY, type Category } from "@/lib/categories";
 import { ordinal, todayKey, type DateKey } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { findQuestion, papiReply, type PapiQuestion } from "@/lib/papi";
-import { newId, store, type DataStore } from "@/lib/store";
+import { newId, type DataStore } from "@/lib/store";
 import { summarize, type Summary } from "@/lib/summary";
 import { EMPTY_DATA, type AppData, type Settings, type Spending } from "@/lib/types";
 
@@ -14,6 +14,9 @@ type Toast = { id: number; text: string; undo?: () => void };
 
 type AppCtx = {
   loaded: boolean;
+  /** True when loading failed; `retry` tries again. */
+  loadFailed: boolean;
+  retry(): void;
   data: AppData;
   today: DateKey;
   name: string;
@@ -65,9 +68,11 @@ export function useReady() {
 const PAYDAY_MEMORY = "payday";
 
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ store, children }: { store: DataStore; children: ReactNode }) {
   const [data, setData] = useState<AppData>(EMPTY_DATA);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   // Set on mount: the date must come from the visitor's device, never the prerender.
   const [today, setToday] = useState<DateKey>("");
   const [pulse, setPulse] = useState<string | null>(null);
@@ -81,20 +86,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
-    store.load().then((d) => {
-      if (!alive) return;
-      setToday(todayKey());
-      setData(d);
-      setLoaded(true);
-    });
+    store.load().then(
+      (d) => {
+        if (!alive) return;
+        setToday(todayKey());
+        setData(d);
+        setLoadFailed(false);
+        setLoaded(true);
+      },
+      (err) => {
+        console.error("Purrse: loading failed", err);
+        if (alive) setLoadFailed(true);
+      },
+    );
     return () => {
       alive = false;
     };
-  }, []);
+  }, [store, attempt]);
 
   useEffect(() => {
     if (loaded) void store.save(data);
-  }, [data, loaded]);
+  }, [store, data, loaded]);
 
   // Keep "today" current across midnight and when the tab comes back.
   useEffect(() => {
@@ -267,10 +279,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLastAnswer(null);
     setPulse(null);
     dismissToast();
-  }, [dismissToast]);
+  }, [store, dismissToast]);
 
   const value: AppCtx = {
     loaded,
+    loadFailed,
+    retry: () => {
+      setLoadFailed(false);
+      setAttempt((a) => a + 1);
+    },
     data,
     today,
     name: data.profile?.name ?? "",

@@ -967,8 +967,34 @@ button.row-main:hover {
   color: var(--muted);
 }
 
-.alloc-msg.warn {
+.alloc-warn {
+  margin: 16px 0 0;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--amber) 14%, var(--surface));
+  border: 2px solid var(--amber);
+}
+
+.alloc-warn-title {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
   color: var(--amber);
+}
+
+.alloc-warn-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.alloc-warn-text strong {
+  color: var(--amber);
+}
+
+.alloc-warn-btn {
+  margin-block-start: 12px;
 }
 
 .two-grid {
@@ -1022,6 +1048,7 @@ button.row-main:hover {
   font-size: 15px;
 }
 
+.account-zone,
 .danger-zone {
   display: flex;
   flex-wrap: wrap;
@@ -1033,6 +1060,7 @@ button.row-main:hover {
   border-top: 1px solid var(--hover);
 }
 
+.account-zone p,
 .danger-zone p {
   flex: 1 1 280px;
   font-size: 15px;
@@ -1763,6 +1791,24 @@ p.readout {
   margin-inline-end: -10px;
 }
 
+.cat-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cat-name .h2 {
+  overflow-wrap: anywhere;
+}
+
+.rename-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
 .rename-row {
   display: flex;
   align-items: center;
@@ -1824,4 +1870,59 @@ p.del-text {
   .total-input {
     font-size: 38px;
   }
+}
+
+/* Sign in */
+.auth-card .field-label {
+  margin-block-start: 16px;
+}
+
+.auth-card .welcome-title {
+  text-align: center;
+}
+
+.auth-label-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-forgot {
+  min-height: 32px;
+  font-size: 15px;
+}
+
+.password-row {
+  display: flex;
+  gap: 8px;
+}
+
+.password-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.auth-notice {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--mint) 14%, var(--surface));
+  border: 2px solid var(--mint);
+  line-height: 1.4;
+}
+
+.auth-switch {
+  margin: 18px 0 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.auth-switch .link-btn {
+  min-height: 32px;
+}
+
+.account-email {
+  color: var(--text);
+  overflow-wrap: anywhere;
 }

@@ -1,7 +1,8 @@
 // Every read and write of the person's data goes through this module, so the
-// screens never touch storage directly. With Supabase keys set, data lives in
-// Supabase; without them, it stays in this browser's localStorage.
-import { createClient } from "@supabase/supabase-js";
+// screens never touch storage directly. With Supabase keys set, each signed-in
+// person's data lives in Supabase; without them, it stays in this browser's
+// localStorage and there is no sign-in.
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PRESETS, presetCategory } from "./categories";
 import { supabaseStore } from "./supabaseStore";
 import { EMPTY_DATA, type AppData } from "./types";
@@ -14,7 +15,8 @@ export interface DataStore {
   photos?: {
     /** Uploads an image and returns its storage path. */
     upload(image: Blob): Promise<string>;
-    url(path: string): string;
+    /** A short-lived link for showing a photo. */
+    url(path: string): Promise<string>;
   };
 }
 
@@ -64,8 +66,13 @@ export const localStore: DataStore = {
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-export const store: DataStore =
-  SUPABASE_URL && SUPABASE_KEY ? supabaseStore(createClient(SUPABASE_URL, SUPABASE_KEY), localStore) : localStore;
+/** The Supabase client, or null when the app runs on this browser alone. */
+export const supabase: SupabaseClient | null = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+/** The store for one signed-in person, or this browser's store without Supabase. */
+export function storeFor(userId: string | null): DataStore {
+  return supabase && userId ? supabaseStore(supabase, userId) : localStore;
+}
 
 export function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto

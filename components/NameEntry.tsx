@@ -25,7 +25,7 @@ export function NameEntry({ initial = "", onDone }: { initial?: string; onDone?:
       <form className="welcome-card" onSubmit={submit} noValidate>
         <PapiBust mood="curious" size={150} bg="var(--mint)" alt="Papi, a black and white cat, looking up curiously" />
         <h1 className="welcome-title">What should Papi call you?</h1>
-        <p className="welcome-sub">No password needed. Just a name.</p>
+        <p className="welcome-sub">A first name or a nickname is perfect.</p>
         <label htmlFor="name" className="field-label">
           Your name
         </label>
