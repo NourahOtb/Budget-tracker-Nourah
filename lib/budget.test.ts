@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { budgetStatus, categoryState, moodFor, perDay, periodFor } from "./budget";
-import { suggestLimits } from "./categories";
+import { PRESETS, customCategory, presetCategory, suggestLimits } from "./categories";
 import { fmt, fmtKwd, parseKwd } from "./money";
-import { parseQuickAdd } from "./quickAdd";
+import { parseQuickAdd as parse } from "./quickAdd";
+
+const ALL = PRESETS.map((p) => presetCategory(p));
+const parseQuickAdd = (text: string) => parse(text, ALL);
 import { summarize, usuals } from "./summary";
 import { findQuestion } from "./papi";
 import type { Spending } from "./types";
@@ -127,10 +130,34 @@ describe("quick add", () => {
   });
 });
 
+describe("custom categories", () => {
+  it("guesses a typed category by its name, before preset keywords", () => {
+    const gym = customCategory("c1", "Gym", ALL);
+    expect(parse("15 gym membership", [...ALL, gym])?.cat).toBe("c1");
+    expect(parse("15 gym membership", ALL)?.cat).toBe("bills");
+  });
+  it("only guesses categories the owner has, falling back to her first one", () => {
+    const mine = [presetCategory(PRESETS[3]), customCategory("c2", "Kids", [])];
+    expect(parse("4.5 coffee", mine)?.cat).toBe("shopping");
+    expect(parse("20 school shoes for kids", mine)?.cat).toBe("c2");
+  });
+  it("gives typed categories a colour nobody else uses", () => {
+    const a = customCategory("a", "A", ALL);
+    const b = customCategory("b", "B", [...ALL, a]);
+    expect(a.color).not.toBe(b.color);
+    expect(ALL.map((c) => c.color)).not.toContain(a.color);
+  });
+  it("spreads a total over any mix of categories and still adds up", () => {
+    const mix = [presetCategory(PRESETS[0]), customCategory("c3", "Gifts", [])];
+    expect(suggestLimits(300000, mix).reduce((a, c) => a + c.limit, 0)).toBe(300000);
+  });
+});
+
 describe("suggested limits", () => {
   it("reproduces the design's limits for 500 KWD and always adds up", () => {
-    expect(suggestLimits(500000)).toEqual({ food: 110000, transport: 50000, fun: 70000, shopping: 55000, papi: 25000, bills: 190000 });
-    const l = suggestLimits(733000);
+    const limits = Object.fromEntries(suggestLimits(500000, ALL).map((c) => [c.id, c.limit]));
+    expect(limits).toEqual({ food: 110000, transport: 50000, fun: 70000, shopping: 55000, papi: 25000, bills: 190000 });
+    const l = Object.fromEntries(suggestLimits(733000, ALL).map((c) => [c.id, c.limit]));
     expect(Object.values(l).reduce((a, b) => a + b, 0)).toBe(733000);
   });
 });
@@ -138,7 +165,7 @@ describe("suggested limits", () => {
 const sp = (id: string, name: string, fils: number, date: string, cat: Spending["cat"] = "food"): Spending => ({ id, name, cat, fils, date, createdAt: Number(id) });
 
 describe("summary", () => {
-  const settings = { total: 500000, payday: 25, limits: suggestLimits(500000) };
+  const settings = { total: 500000, payday: 25, categories: suggestLimits(500000, ALL) };
   it("only counts this period and compares with last period so far", () => {
     const list = [sp("1", "Old", 9000, "2026-10-20"), sp("2", "Older", 1000, "2026-10-01"), sp("3", "Now", 4000, "2026-11-03")];
     const s = summarize(settings, list, "2026-11-03");

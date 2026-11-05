@@ -1,8 +1,8 @@
 "use client";
 
-import { CAT } from "@/lib/categories";
 import { fmt } from "@/lib/money";
 import type { Spending } from "@/lib/types";
+import { useApp } from "./AppProvider";
 import { CatTile, ICONS, Icon } from "./ui";
 
 export function SpendingRow({
@@ -17,9 +17,10 @@ export function SpendingRow({
   onEdit?: () => void;
   onRemove?: () => void;
 }) {
+  const cat = useApp().catOf(t.cat);
   const body = (
     <>
-      <CatTile cat={t.cat} />
+      <CatTile cat={cat} />
       <span className="row-text">
         <span className="row-name">
           {t.name}
@@ -38,7 +39,7 @@ export function SpendingRow({
   return (
     <li className="row">
       {onEdit ? (
-        <button type="button" className="row-main" onClick={onEdit} aria-label={`Edit ${t.name}, ${CAT[t.cat].name}, ${fmt(t.fils)} KWD, ${sub}${t.photo ? ", has a photo" : ""}`}>
+        <button type="button" className="row-main" onClick={onEdit} aria-label={`Edit ${t.name}, ${cat.name}, ${fmt(t.fils)} KWD, ${sub}${t.photo ? ", has a photo" : ""}`}>
           {body}
         </button>
       ) : (

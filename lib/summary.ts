@@ -10,7 +10,6 @@ import {
   type BudgetStatus,
   type Period,
 } from "./budget";
-import type { CatKey } from "./categories";
 import { addDays, type DateKey } from "./dates";
 import type { Settings, Spending } from "./types";
 
@@ -25,7 +24,7 @@ export type Summary = {
   status: BudgetStatus;
   gap: number;
   perDay: number;
-  catSpent: Record<CatKey, number>;
+  catSpent: Record<string, number>;
   prevPeriod: Period;
   /** Spent in the previous period up to the same day, or null when there's nothing to compare. */
   prevSoFar: number | null;
@@ -50,13 +49,13 @@ export function summarize(settings: Settings, spendings: Spending[], today: Date
     status: budgetStatus(settings.total, spent, period.elapsedPct),
     gap: paceGap(settings.total, spent, period.elapsedPct),
     perDay: perDay(left, period.daysLeft),
-    catSpent: spentByCat(current),
+    catSpent: spentByCat(current, settings.categories.map((c) => c.id)),
     prevPeriod,
     prevSoFar,
   };
 }
 
-export type Usual = { name: string; fils: number; cat: CatKey };
+export type Usual = { name: string; fils: number; cat: string };
 
 /** The person's most frequent spendings (by name), with their latest amount. */
 export function usuals(spendings: Spending[], limit = 3): Usual[] {

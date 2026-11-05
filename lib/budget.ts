@@ -1,4 +1,3 @@
-import { CAT_KEYS, type CatKey } from "./categories";
 import { addDays, daysInMonth, diffDays, makeKey, parts, type DateKey } from "./dates";
 import type { Spending } from "./types";
 
@@ -91,9 +90,10 @@ export function sumFils(list: Spending[]): number {
   return list.reduce((a, t) => a + t.fils, 0);
 }
 
-export function spentByCat(list: Spending[]): Record<CatKey, number> {
-  const out = Object.fromEntries(CAT_KEYS.map((k) => [k, 0])) as Record<CatKey, number>;
-  for (const t of list) out[t.cat] += t.fils;
+/** Spent per category id; every id in `ids` is present, even at zero. */
+export function spentByCat(list: Spending[], ids: string[]): Record<string, number> {
+  const out: Record<string, number> = Object.fromEntries(ids.map((k) => [k, 0]));
+  for (const t of list) out[t.cat] = (out[t.cat] ?? 0) + t.fils;
   return out;
 }
 

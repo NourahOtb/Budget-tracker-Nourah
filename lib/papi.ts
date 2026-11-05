@@ -4,7 +4,7 @@
 //
 // `papiReply` is the single entry point for chat. When Papi becomes a real AI
 // agent, replace its body with a call to a server route; nothing else changes.
-import { CAT, CAT_KEYS, type CatKey } from "./categories";
+import { byId, UNKNOWN_CATEGORY } from "./categories";
 import { guessCategory } from "./quickAdd";
 import { addDays, dayMonth, diffDays, relativeDay, weekdayLong, type DateKey } from "./dates";
 import { fmt } from "./money";
@@ -78,7 +78,8 @@ export function papiLine(o: {
   s: Summary;
   hasAnySpending: boolean;
   question: PapiQuestion | null;
-  pulse: CatKey | null;
+  /** Category id of the spending just added. */
+  pulse: string | null;
   lastAnswer: string | null;
 }): PapiLine {
   const { s } = o;
@@ -119,19 +120,20 @@ function replyNow(q: string, c: ReplyContext): string {
   if (cost && /afford|buy|get|can i/.test(lower)) {
     const after = s.left - cost;
     if (after < 0) return `That puts you ${fmt(after)} KWD over for the month. Could it wait until ${payday}?`;
-    const cat = guessCategory(q.replace(/\d+([.,]\d+)?/, ""));
-    const catOver = s.catSpent[cat] - settings.limits[cat];
+    const cats = byId(settings.categories);
+    const cat = guessCategory(q.replace(/\d+([.,]\d+)?/, ""), settings.categories);
+    const catOver = cats[cat] ? (s.catSpent[cat] ?? 0) - cats[cat].limit : 0;
     const daily = s.period.daysLeft > 0 ? Math.round(after / s.period.daysLeft) : after;
     return (
       `You’d have ${fmt(after)} KWD left, about ${fmt(daily)} a day.` +
-      (catOver > 0 ? ` ${CAT[cat].name} is already ${fmt(catOver)} over, though.` : "") +
+      (catOver > 0 ? ` ${cats[cat].name} is already ${fmt(catOver)} over, though.` : "") +
       " Is it a very good one?"
     );
   }
   if (/where|most|went/.test(lower)) {
     if (s.spent === 0) return "Nowhere yet. The month is still clean.";
-    const top = [...CAT_KEYS].sort((a, b) => s.catSpent[b] - s.catSpent[a])[0];
-    return `${CAT[top].name}: ${fmt(s.catSpent[top])} KWD. That’s ${Math.round((s.catSpent[top] / s.spent) * 100)}% of everything so far.`;
+    const top = Object.keys(s.catSpent).sort((a, b) => s.catSpent[b] - s.catSpent[a])[0];
+    return `${(byId(settings.categories)[top] ?? UNKNOWN_CATEGORY).name}: ${fmt(s.catSpent[top])} KWD. That’s ${Math.round((s.catSpent[top] / s.spent) * 100)}% of everything so far.`;
   }
   if (/month|going|doing|how am/.test(lower)) {
     const p = s.total > 0 ? Math.round((s.spent / s.total) * 100) : 0;
@@ -140,7 +142,8 @@ function replyNow(q: string, c: ReplyContext): string {
     return `${p}% of the money is gone and ${e}% of the month is. ${mood}`;
   }
   if (/you|papi|cost/.test(lower)) {
-    const mine = s.catSpent.papi;
+    if (!settings.categories.some((c) => c.id === "papi")) return "I don’t have my own category. Add Papi on the Budgets page and I’ll keep count of me too.";
+    const mine = s.catSpent.papi ?? 0;
     return mine > 0 ? `${fmt(mine)} KWD so far. Worth it. I checked.` : "Nothing yet this month. I’m very affordable.";
   }
   if (/\b(hi|hello|hey|salam)\b/.test(lower)) return `Hi ${c.name}. I’m here.`;

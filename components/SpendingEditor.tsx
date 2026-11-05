@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { CATEGORIES, type CatKey } from "@/lib/categories";
 import { type DateKey } from "@/lib/dates";
 import { fmt, parseKwd } from "@/lib/money";
 import type { Spending } from "@/lib/types";
@@ -29,10 +28,10 @@ export function SpendingEditor({ spending, onClose }: { spending: Spending | nul
 }
 
 function EditorForm({ spending, onClose }: { spending: Spending; onClose: () => void }) {
-  const { updateSpending, removeSpending, today, photos } = useApp();
+  const { updateSpending, removeSpending, today, photos, categories } = useApp();
   const [name, setName] = useState(spending.name);
   const [amount, setAmount] = useState(fmt(spending.fils));
-  const [cat, setCat] = useState<CatKey>(spending.cat);
+  const [cat, setCat] = useState<string>(spending.cat);
   const [date, setDate] = useState<DateKey>(spending.date);
   const [error, setError] = useState("");
   const picked = usePickedPhoto();
@@ -99,14 +98,14 @@ function EditorForm({ spending, onClose }: { spending: Spending; onClose: () => 
       <fieldset className="chip-field">
         <legend className="field-label">Category</legend>
         <div className="chips">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button
-              key={c.key}
+              key={c.id}
               type="button"
               className="chip cat-chip"
-              aria-pressed={cat === c.key}
-              style={cat === c.key ? { background: c.color, color: "var(--ground)" } : undefined}
-              onClick={() => setCat(c.key)}
+              aria-pressed={cat === c.id}
+              style={cat === c.id ? { background: c.color, color: "var(--ground)" } : undefined}
+              onClick={() => setCat(c.id)}
             >
               <Icon d={c.icon} size={18} />
               {c.name}

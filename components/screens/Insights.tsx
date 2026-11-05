@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 import { byNewest } from "@/lib/budget";
-import { CAT, CAT_KEYS } from "@/lib/categories";
 import { addDays, parts, shortDate } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { useReady } from "../AppProvider";
@@ -11,7 +10,7 @@ import { SpendingRow } from "../SpendingRow";
 import { PapiBust } from "../ui";
 
 export function InsightsScreen() {
-  const { summary: s } = useReady();
+  const { summary: s, categories, catOf } = useReady();
   const [hover, setHover] = useState<number | null>(null);
 
   if (s.current.length === 0) {
@@ -30,7 +29,7 @@ export function InsightsScreen() {
     );
   }
 
-  const ranked = CAT_KEYS.map((k) => ({ k, sp: s.catSpent[k] })).sort((a, b) => b.sp - a.sp);
+  const ranked = categories.map((c) => ({ k: c.id, sp: s.catSpent[c.id] ?? 0 })).sort((a, b) => b.sp - a.sp);
   const topSp = ranked[0].sp || 1;
   const dayNo = s.period.dayIndex + 1;
 
@@ -44,7 +43,7 @@ export function InsightsScreen() {
   const todayIdx = days.length - 1;
 
   let line: string;
-  const top = `${CAT[ranked[0].k].name} is your biggest category so far.`;
+  const top = `${catOf(ranked[0].k).name} is your biggest category so far.`;
   if (s.prevSoFar === null || s.prevSoFar === 0) {
     line = `This is your first budget month with Purrse, so there’s nothing to compare yet. ${top}`;
   } else {
@@ -71,12 +70,12 @@ export function InsightsScreen() {
             {ranked.map((r) => (
               <li key={r.k}>
                 <div className="hbar-line">
-                  <span className="strong">{CAT[r.k].name}</span>
+                  <span className="strong">{catOf(r.k).name}</span>
                   <span className="muted num">
                     {fmt(r.sp)} KWD, {s.spent ? Math.round((r.sp / s.spent) * 100) : 0}%
                   </span>
                 </div>
-                <div className="hbar" style={{ width: `${((r.sp / topSp) * 100).toFixed(1)}%`, minWidth: r.sp ? 4 : 0, background: CAT[r.k].color }} />
+                <div className="hbar" style={{ width: `${((r.sp / topSp) * 100).toFixed(1)}%`, minWidth: r.sp ? 4 : 0, background: catOf(r.k).color }} />
               </li>
             ))}
           </ul>

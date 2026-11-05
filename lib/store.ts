@@ -2,6 +2,7 @@
 // screens never touch storage directly. With Supabase keys set, data lives in
 // Supabase; without them, it stays in this browser's localStorage.
 import { createClient } from "@supabase/supabase-js";
+import { PRESETS, presetCategory } from "./categories";
 import { supabaseStore } from "./supabaseStore";
 import { EMPTY_DATA, type AppData } from "./types";
 
@@ -19,6 +20,14 @@ export interface DataStore {
 
 const KEY = "purrse:v1";
 
+// Data saved before categories were editable kept a fixed `limits` map instead.
+function upgrade(d: AppData): AppData {
+  const s = d.settings as (AppData["settings"] & { limits?: Record<string, number> }) | null;
+  if (!s || s.categories || !s.limits) return d;
+  const categories = PRESETS.map((p) => presetCategory(p, s.limits?.[p.id] ?? 0));
+  return { ...d, settings: { total: s.total, payday: s.payday, categories } };
+}
+
 function isAppData(v: unknown): v is AppData {
   if (!v || typeof v !== "object") return false;
   const d = v as Partial<AppData>;
@@ -31,7 +40,7 @@ export const localStore: DataStore = {
       const raw = window.localStorage.getItem(KEY);
       if (!raw) return { ...EMPTY_DATA };
       const parsed: unknown = JSON.parse(raw);
-      return isAppData(parsed) ? { ...EMPTY_DATA, ...parsed } : { ...EMPTY_DATA };
+      return isAppData(parsed) ? upgrade({ ...EMPTY_DATA, ...parsed }) : { ...EMPTY_DATA };
     } catch {
       return { ...EMPTY_DATA };
     }

@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { categoryState } from "@/lib/budget";
-import { CATEGORIES, type CatKey } from "@/lib/categories";
 import { relativeDay } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { papiLine } from "@/lib/papi";
@@ -90,16 +89,19 @@ function Hero() {
 }
 
 function AddForm() {
-  const { addSpending, data, photos } = useReady();
+  const { addSpending, data, photos, categories } = useReady();
   const [draft, setDraft] = useState("");
-  const [draftCat, setDraftCat] = useState<CatKey | null>(null);
+  const [draftCat, setDraftCat] = useState<string | null>(null);
   const photo = usePickedPhoto();
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  const parsed = parseQuickAdd(draft);
+  const parsed = parseQuickAdd(draft, categories);
   const cat = draftCat ?? parsed?.cat ?? null;
-  const usual = useMemo(() => usuals(data.spendings), [data.spendings]);
+  const usual = useMemo(
+    () => usuals(data.spendings.filter((t) => categories.some((c) => c.id === t.cat))),
+    [data.spendings, categories],
+  );
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -177,14 +179,14 @@ function AddForm() {
         <div className="add-cats">
           <p className="muted">{parsed.name} goes in:</p>
           <div className="chips" role="group" aria-label="Category">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
-                key={c.key}
+                key={c.id}
                 type="button"
                 className="chip cat-chip"
-                aria-pressed={cat === c.key}
-                style={cat === c.key ? { background: c.color, color: "var(--ground)" } : undefined}
-                onClick={() => setDraftCat(c.key)}
+                aria-pressed={cat === c.id}
+                style={cat === c.id ? { background: c.color, color: "var(--ground)" } : undefined}
+                onClick={() => setDraftCat(c.id)}
               >
                 <Icon d={c.icon} size={18} />
                 {c.name}
@@ -233,7 +235,7 @@ export function CategoryBar({ spent, limit, color, thick }: { spent: number; lim
 }
 
 function Glance() {
-  const { summary: s, settings } = useReady();
+  const { summary: s, categories } = useReady();
   return (
     <section aria-labelledby="glance-title" className="glance">
       <div className="section-head">
@@ -245,15 +247,15 @@ function Glance() {
         </Link>
       </div>
       <ul className="glance-grid">
-        {CATEGORIES.map((c) => (
-          <li key={c.key} className="glance-item">
-            <CatTile cat={c.key} />
+        {categories.map((c) => (
+          <li key={c.id} className="glance-item">
+            <CatTile cat={c} />
             <div className="glance-body">
               <div className="glance-line">
                 <span className="strong">{c.name}</span>
-                <CategoryStatus spent={s.catSpent[c.key]} limit={settings.limits[c.key]} />
+                <CategoryStatus spent={s.catSpent[c.id] ?? 0} limit={c.limit} />
               </div>
-              <CategoryBar spent={s.catSpent[c.key]} limit={settings.limits[c.key]} color={c.color} />
+              <CategoryBar spent={s.catSpent[c.id] ?? 0} limit={c.limit} color={c.color} />
             </div>
           </li>
         ))}

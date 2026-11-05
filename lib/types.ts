@@ -1,10 +1,11 @@
-import type { CatKey } from "./categories";
+import type { Category } from "./categories";
 import type { DateKey } from "./dates";
 
 export type Spending = {
   id: string;
   name: string;
-  cat: CatKey;
+  /** Id of one of the owner's categories. */
+  cat: string;
   /** Whole fils. */
   fils: number;
   date: DateKey;
@@ -19,7 +20,8 @@ export type Settings = {
   total: number;
   /** Day of the month the budget period starts (1 to 31; short months use their last day). */
   payday: number;
-  limits: Record<CatKey, number>;
+  /** The owner's categories in display order, each with its monthly limit. */
+  categories: Category[];
 };
 
 export type MemoryItem = { id: string; text: string };

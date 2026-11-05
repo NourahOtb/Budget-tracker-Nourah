@@ -2,14 +2,14 @@
 // so there is one shared set of rows: the same data on every device.
 // Saves send only what changed since the last successful save.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CAT_KEYS, type CatKey } from "./categories";
+import type { Category } from "./categories";
 import type { DataStore } from "./store";
 import { EMPTY_DATA, type AppData, type Spending } from "./types";
 
 type Tables = {
   profile: { name: string; total_fils: number | null; payday: number | null } | null;
-  limits: { category: CatKey; limit_fils: number }[];
-  spendings: { id: string; name: string; category: CatKey; fils: number; spent_on: string; created_at: string; photo_path: string | null }[];
+  categories: { id: string; name: string; color: string; icon: string; limit_fils: number; position: number }[];
+  spendings: { id: string; name: string; category: string; fils: number; spent_on: string; created_at: string; photo_path: string | null }[];
   memory: { id: string; text: string; position: number }[];
   chat: { position: number; who: "papi" | "you"; text: string }[];
   answered: { question_id: string }[];
@@ -17,13 +17,14 @@ type Tables = {
 
 function toAppData(t: Tables): AppData {
   if (!t.profile) return { ...EMPTY_DATA };
-  const limits = Object.fromEntries(CAT_KEYS.map((k) => [k, 0])) as Record<CatKey, number>;
-  for (const l of t.limits) limits[l.category] = Number(l.limit_fils);
-  const hasSettings = t.profile.total_fils !== null && t.profile.payday !== null;
+  const categories: Category[] = [...t.categories]
+    .sort((a, b) => a.position - b.position)
+    .map((c) => ({ id: c.id, name: c.name, color: c.color, icon: c.icon, limit: Number(c.limit_fils) }));
+  const hasSettings = t.profile.total_fils !== null && t.profile.payday !== null && categories.length > 0;
   return {
     version: 1,
     profile: { name: t.profile.name },
-    settings: hasSettings ? { total: Number(t.profile.total_fils), payday: Number(t.profile.payday), limits } : null,
+    settings: hasSettings ? { total: Number(t.profile.total_fils), payday: Number(t.profile.payday), categories } : null,
     spendings: t.spendings.map((s) => ({
       id: s.id,
       name: s.name,
@@ -49,6 +50,9 @@ const spendingRow = (s: Spending) => ({
   photo_path: s.photo ?? null,
 });
 
+const sameCategory = (a: Category, b: Category) =>
+  a.name === b.name && a.color === b.color && a.icon === b.icon && a.limit === b.limit;
+
 const sameSpending = (a: Spending, b: Spending) =>
   a.name === b.name && a.cat === b.cat && a.fils === b.fils && a.date === b.date && a.createdAt === b.createdAt && (a.photo ?? null) === (b.photo ?? null);
 
@@ -58,9 +62,10 @@ function check<T extends { error: unknown }>(res: T): T {
 }
 
 // Each table and its key column, used to delete every row when starting over.
+// Spendings go before categories because each spending points at its category.
 const TABLES: [string, string][] = [
   ["spendings", "id"],
-  ["category_limits", "category"],
+  ["categories", "id"],
   ["papi_memory", "id"],
   ["chat_messages", "position"],
   ["answered_questions", "question_id"],
@@ -92,10 +97,10 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
   }
 
   async function fetchAll(): Promise<AppData> {
-    const [profile, limits, spendings, memory, chat, answered] = (
+    const [profile, categories, spendings, memory, chat, answered] = (
       await Promise.all([
         db.from("profile").select("name, total_fils, payday").maybeSingle(),
-        db.from("category_limits").select("category, limit_fils"),
+        db.from("categories").select("id, name, color, icon, limit_fils, position"),
         db.from("spendings").select("id, name, category, fils, spent_on, created_at, photo_path"),
         db.from("papi_memory").select("id, text, position"),
         db.from("chat_messages").select("position, who, text"),
@@ -104,7 +109,7 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
     ).map(check);
     return toAppData({
       profile: profile.data,
-      limits: limits.data ?? [],
+      categories: categories.data ?? [],
       spendings: spendings.data ?? [],
       memory: memory.data ?? [],
       chat: chat.data ?? [],
@@ -126,9 +131,19 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
       );
     }
 
-    if (next.settings && next.settings.limits !== prev.settings?.limits) {
-      const rows = CAT_KEYS.map((k) => ({ category: k, limit_fils: next.settings!.limits[k] }));
-      check(await db.from("category_limits").upsert(rows));
+    // New and changed categories go first, so spendings moved into them can point at them.
+    const nextCats = next.settings?.categories ?? [];
+    const prevCats = prev.settings?.categories ?? [];
+    if (nextCats !== prevCats) {
+      const before = new Map(prevCats.map((c, i) => [c.id, { c, i }]));
+      const rows = nextCats
+        .map((c, position) => ({ c, position }))
+        .filter(({ c, position }) => {
+          const b = before.get(c.id);
+          return !b || b.i !== position || !sameCategory(b.c, c);
+        })
+        .map(({ c, position }) => ({ id: c.id, name: c.name, color: c.color, icon: c.icon, limit_fils: c.limit, position }));
+      if (rows.length) check(await db.from("categories").upsert(rows));
     }
 
     if (next.spendings !== prev.spendings) {
@@ -140,6 +155,13 @@ export function supabaseStore(db: SupabaseClient, fallback: DataStore): DataStor
       if (removed.length) check(await db.from("spendings").delete().in("id", removed));
       const stillUsed = new Set(next.spendings.map((s) => s.photo));
       forgetPhotos([...new Set(prev.spendings.map((s) => s.photo).filter((p): p is string => !!p && !stillUsed.has(p)))]);
+    }
+
+    // Deleted categories go last, once none of their spendings point at them.
+    if (nextCats !== prevCats) {
+      const now = new Set(nextCats.map((c) => c.id));
+      const removed = prevCats.filter((c) => !now.has(c.id)).map((c) => c.id);
+      if (removed.length) check(await db.from("categories").delete().in("id", removed));
     }
 
     if (next.memory !== prev.memory) {

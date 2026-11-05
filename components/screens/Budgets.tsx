@@ -1,46 +1,33 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { CATEGORIES, CAT_KEYS, type CatKey } from "@/lib/categories";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { PRESETS, cleanName, customCategory, presetCategory, type Category } from "@/lib/categories";
 import { ordinal } from "@/lib/dates";
-import { fmt } from "@/lib/money";
+import { fmt, parseKwd } from "@/lib/money";
+import { newId } from "@/lib/store";
 import { useReady } from "../AppProvider";
 import { AllocationMessage } from "../Allocation";
-import { CatTile } from "../ui";
+import { NewCategoryField, categoryNameProblem } from "../Setup";
+import { CatTile, ICONS, Icon } from "../ui";
 import { CategoryBar, CategoryStatus } from "./Today";
 
 export function BudgetsScreen() {
-  const { summary: s, settings, saveSettings } = useReady();
-  const allocated = CAT_KEYS.reduce((a, k) => a + settings.limits[k], 0);
+  const { summary: s, settings, saveSettings, categories } = useReady();
+  const [deleting, setDeleting] = useState<Category | null>(null);
+  const allocated = categories.reduce((a, c) => a + c.limit, 0);
   const scale = Math.max(allocated, settings.total);
 
-  const setTotal = (d: number) => saveSettings({ ...settings, total: Math.max(10_000, settings.total + d) });
-  const setLimit = (k: CatKey, d: number) =>
-    saveSettings({ ...settings, limits: { ...settings.limits, [k]: Math.max(0, settings.limits[k] + d) } });
+  const setCategory = (id: string, change: Partial<Category>) =>
+    saveSettings({ ...settings, categories: categories.map((c) => (c.id === id ? { ...c, ...change } : c)) });
 
   return (
     <div className="page">
       <h1 className="h1">Budgets</h1>
       <section aria-label="Monthly total" className="panel total-panel">
-        <div className="total-head">
-          <div>
-            <p className="label-muted">Monthly total</p>
-            <p className="total-num">
-              {fmt(settings.total)} <span>KWD</span>
-            </p>
-          </div>
-          <div className="stepper">
-            <button type="button" className="step-btn" onClick={() => setTotal(-10_000)} aria-label="Lower monthly total by 10 KWD">
-              -
-            </button>
-            <button type="button" className="step-btn" onClick={() => setTotal(10_000)} aria-label="Raise monthly total by 10 KWD">
-              +
-            </button>
-          </div>
-        </div>
+        <TotalField />
         <div className="alloc" aria-hidden="true">
-          {CATEGORIES.map((c) => (
-            <div key={c.key} style={{ flex: `${settings.limits[c.key] / scale} 1 0`, minWidth: settings.limits[c.key] ? 4 : 0, background: c.color }} />
+          {categories.map((c) => (
+            <div key={c.id} style={{ flex: `${c.limit / scale} 1 0`, minWidth: c.limit ? 4 : 0, background: c.color }} />
           ))}
           {allocated < settings.total && <div style={{ flex: `${(settings.total - allocated) / scale} 1 0` }} />}
         </div>
@@ -48,25 +35,35 @@ export function BudgetsScreen() {
       </section>
 
       <div className="two-grid">
-        {CATEGORIES.map((c) => (
-          <section key={c.key} aria-labelledby={`b-${c.key}`} className="panel budget-card">
-            <div className="budget-head">
-              <CatTile cat={c.key} />
-              <h2 id={`b-${c.key}`} className="h2 grow">
-                {c.name}
-              </h2>
-              <CategoryStatus spent={s.catSpent[c.key]} limit={settings.limits[c.key]} />
-            </div>
-            <CategoryBar spent={s.catSpent[c.key]} limit={settings.limits[c.key]} color={c.color} thick />
+        {categories.map((c) => (
+          <section key={c.id} aria-labelledby={`b-${c.id}`} className="panel budget-card">
+            <CategoryHead
+              c={c}
+              spent={s.catSpent[c.id] ?? 0}
+              canDelete={categories.length > 1}
+              onRename={(name) => setCategory(c.id, { name })}
+              onDelete={() => setDeleting(c)}
+            />
+            <CategoryBar spent={s.catSpent[c.id] ?? 0} limit={c.limit} color={c.color} thick />
             <div className="budget-foot">
               <p className="muted num">
-                {fmt(s.catSpent[c.key])} of {fmt(settings.limits[c.key])} KWD
+                {fmt(s.catSpent[c.id] ?? 0)} of {fmt(c.limit)} KWD
               </p>
               <div className="stepper">
-                <button type="button" className="step-btn small" onClick={() => setLimit(c.key, -5_000)} aria-label={`Lower ${c.name} budget by 5 KWD`}>
+                <button
+                  type="button"
+                  className="step-btn small"
+                  onClick={() => setCategory(c.id, { limit: Math.max(0, c.limit - 5_000) })}
+                  aria-label={`Lower ${c.name} budget by 5 KWD`}
+                >
                   -
                 </button>
-                <button type="button" className="step-btn small" onClick={() => setLimit(c.key, 5_000)} aria-label={`Raise ${c.name} budget by 5 KWD`}>
+                <button
+                  type="button"
+                  className="step-btn small"
+                  onClick={() => setCategory(c.id, { limit: c.limit + 5_000 })}
+                  aria-label={`Raise ${c.name} budget by 5 KWD`}
+                >
                   +
                 </button>
               </div>
@@ -75,8 +72,295 @@ export function BudgetsScreen() {
         ))}
       </div>
 
+      <AddCategory />
       <Details />
+      <DeleteCategoryDialog category={deleting} onClose={() => setDeleting(null)} />
     </div>
+  );
+}
+
+/** The monthly total: type it, or nudge it with − and +. */
+function TotalField() {
+  const { settings, saveSettings } = useReady();
+  const [text, setText] = useState(fmt(settings.total));
+  const [error, setError] = useState("");
+  const [shownTotal, setShownTotal] = useState(settings.total);
+
+  // Follow changes made by − and + (or another device) unless mid-edit with an error.
+  if (shownTotal !== settings.total) {
+    setShownTotal(settings.total);
+    setText(fmt(settings.total));
+    setError("");
+  }
+
+  const save = () => {
+    const fils = parseKwd(text);
+    if (!fils) {
+      setError("Type the monthly total in KWD, like 500 or 750.5.");
+      return;
+    }
+    setError("");
+    setText(fmt(fils));
+    if (fils !== settings.total) saveSettings({ ...settings, total: fils });
+  };
+  const step = (d: number) => saveSettings({ ...settings, total: Math.max(10_000, settings.total + d) });
+
+  return (
+    <form
+      className="total-head"
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <div className="total-field">
+        <label htmlFor="total-input" className="label-muted">
+          Monthly total
+        </label>
+        <div className="total-input-row">
+          <input
+            id="total-input"
+            className="total-input"
+            inputMode="decimal"
+            value={text}
+            style={{ width: `${Math.max(4, text.length) * 0.56 + 0.4}em` }}
+            onChange={(e) => {
+              setText(e.target.value);
+              setError("");
+            }}
+            onBlur={save}
+            aria-invalid={!!error}
+            aria-describedby={error ? "total-error" : "total-help"}
+            autoComplete="off"
+          />
+          <span className="total-unit" aria-hidden="true">
+            KWD
+          </span>
+        </div>
+        {error ? (
+          <p id="total-error" className="field-error">
+            {error}
+          </p>
+        ) : (
+          <p id="total-help" className="sr-only">
+            Type an amount and press Enter, or use the buttons to change it by 10 KWD.
+          </p>
+        )}
+      </div>
+      <div className="stepper">
+        <button type="button" className="step-btn" onClick={() => step(-10_000)} aria-label="Lower monthly total by 10 KWD">
+          -
+        </button>
+        <button type="button" className="step-btn" onClick={() => step(10_000)} aria-label="Raise monthly total by 10 KWD">
+          +
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function CategoryHead({
+  c,
+  spent,
+  canDelete,
+  onRename,
+  onDelete,
+}: {
+  c: Category;
+  spent: number;
+  canDelete: boolean;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const { categories } = useReady();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(c.name);
+  const [error, setError] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) input.current?.select();
+  }, [editing]);
+
+  if (editing) {
+    const save = (e: FormEvent) => {
+      e.preventDefault();
+      const n = cleanName(text);
+      if (n === c.name) return setEditing(false);
+      const problem = categoryNameProblem(n, categories.filter((x) => x.id !== c.id));
+      if (problem) return setError(problem);
+      onRename(n);
+      setEditing(false);
+    };
+    return (
+      <form className="rename" onSubmit={save}>
+        <label htmlFor={`rename-${c.id}`} className="sr-only">
+          New name for {c.name}
+        </label>
+        <div className="rename-row">
+          <CatTile cat={c} />
+          <input
+            id={`rename-${c.id}`}
+            ref={input}
+            className="input"
+            value={text}
+            maxLength={30}
+            onChange={(e) => {
+              setText(e.target.value);
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+            aria-invalid={!!error}
+          />
+        </div>
+        {error && <p className="field-error">{error}</p>}
+        <div className="rename-actions">
+          <button type="button" className="btn-ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+          <button type="submit" className="btn-solid">
+            Save name
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="budget-head">
+      <CatTile cat={c} />
+      <h2 id={`b-${c.id}`} className="h2 grow">
+        {c.name}
+      </h2>
+      <div className="head-side">
+        <CategoryStatus spent={spent} limit={c.limit} />
+        <div className="cat-actions">
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={`Rename ${c.name}`}
+          onClick={() => {
+            setText(c.name);
+            setEditing(true);
+          }}
+        >
+          <Icon d={ICONS.pencil} size={18} />
+        </button>
+        {canDelete && (
+          <button type="button" className="icon-btn" aria-label={`Delete ${c.name}`} onClick={onDelete}>
+            <Icon d={ICONS.trash} size={18} />
+          </button>
+        )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Add a suggested category back, or type a new one. */
+function AddCategory() {
+  const { settings, saveSettings, categories } = useReady();
+  const missing = PRESETS.filter((p) => !categories.some((c) => c.id === p.id));
+  const add = (c: Category) => saveSettings({ ...settings, categories: [...categories, c] });
+
+  return (
+    <section aria-labelledby="add-cat-title" className="panel add-cat">
+      <h2 id="add-cat-title" className="h2">
+        Add a category
+      </h2>
+      <p className="muted add-cat-hint">New categories start at 0 KWD. Use + to give them a budget.</p>
+      {missing.length > 0 && (
+        <div className="chips" role="group" aria-label="Suggested categories">
+          {missing.map((p) => (
+            <button key={p.id} type="button" className="chip cat-chip" onClick={() => add(presetCategory(p))}>
+              <Icon d={p.icon} size={18} />
+              {p.name}
+              <span className="sr-only">, add</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <NewCategoryField
+        id="budgets-new-cat"
+        onAdd={(typed) => {
+          const n = cleanName(typed);
+          const preset = missing.find((p) => p.name.toLowerCase() === n.toLowerCase());
+          if (preset) {
+            add(presetCategory(preset));
+            return null;
+          }
+          const problem = categoryNameProblem(n, categories);
+          if (problem) return problem;
+          add(customCategory(newId(), n, categories));
+          return null;
+        }}
+      />
+    </section>
+  );
+}
+
+/** Confirms deleting a category, and moves its spendings somewhere first. */
+function DeleteCategoryDialog({ category, onClose }: { category: Category | null; onClose: () => void }) {
+  const { data, categories, deleteCategory } = useReady();
+  const ref = useRef<HTMLDialogElement>(null);
+  const others = categories.filter((c) => c.id !== category?.id);
+  const count = category ? data.spendings.filter((t) => t.cat === category.id).length : 0;
+  const [moveTo, setMoveTo] = useState("");
+  const target = others.some((c) => c.id === moveTo) ? moveTo : (others[0]?.id ?? "");
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (category && !d.open) d.showModal();
+    if (!category && d.open) d.close();
+  }, [category]);
+
+  return (
+    <dialog ref={ref} className="dialog" aria-labelledby="del-title" onClose={onClose}>
+      {category && (
+        <form
+          className="dialog-body"
+          onSubmit={(e) => {
+            e.preventDefault();
+            deleteCategory(category.id, count ? target : null);
+            onClose();
+          }}
+        >
+          <h2 id="del-title" className="h2">
+            Delete {category.name}?
+          </h2>
+          {count > 0 ? (
+            <>
+              <p className="muted del-text">
+                {count === 1 ? "1 spending is" : `${count} spendings are`} in {category.name}. Choose where {count === 1 ? "it goes" : "they go"} so
+                nothing is lost.
+              </p>
+              <label htmlFor="move-to" className="field-label">
+                Move {count === 1 ? "it" : "them"} to
+              </label>
+              <select id="move-to" className="input" value={target} onChange={(e) => setMoveTo(e.target.value)}>
+                {others.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <p className="muted del-text">It has no spendings, so nothing else changes.</p>
+          )}
+          <div className="dialog-actions">
+            <span className="spacer" />
+            <button type="button" className="btn-ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-solid btn-danger">
+              {count > 0 ? "Move and delete" : "Delete"}
+            </button>
+          </div>
+        </form>
+      )}
+    </dialog>
   );
 }
 
@@ -145,15 +429,18 @@ function Details() {
         {saved ? "Saved. Papi noted it." : ""}
       </p>
       <div className="danger-zone">
-        <p className="muted">Everything is saved online, so it’s the same on every device. Starting over deletes your budgets, spendings and Papi’s notes everywhere.</p>
+        <p className="muted">
+          Not {name}, or want a fresh start? Signing out deletes this name, the budgets, every spending and photo, and Papi’s notes, on every device. Then
+          Papi asks for a name again.
+        </p>
         <button
           type="button"
           className="btn-ghost danger"
           onClick={() => {
-            if (window.confirm("Start over? This deletes your budgets, every spending and Papi’s notes on every device.")) void resetAll();
+            if (window.confirm(`Sign out ${name} and start over? This deletes everything on every device and can’t be undone.`)) void resetAll();
           }}
         >
-          Start over
+          Sign out and start over
         </button>
       </div>
     </section>

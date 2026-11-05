@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { moodFor, type Mood } from "@/lib/budget";
-import { CAT, type CatKey } from "@/lib/categories";
+import { byId, UNKNOWN_CATEGORY, type Category } from "@/lib/categories";
 import { ordinal, todayKey, type DateKey } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { findQuestion, papiReply, type PapiQuestion } from "@/lib/papi";
@@ -19,10 +19,14 @@ type AppCtx = {
   name: string;
   settings: Settings | null;
   summary: Summary | null;
+  /** The owner's categories in order (empty before setup). */
+  categories: Category[];
+  /** Looks up a category by id, never failing. */
+  catOf(id: string): Category;
   question: PapiQuestion | null;
   mood: Mood;
   /** Category of the spending just added, for about 3 seconds. */
-  pulse: CatKey | null;
+  pulse: string | null;
   pulseKey: number;
   lastAnswer: string | null;
   toast: Toast | null;
@@ -31,11 +35,13 @@ type AppCtx = {
   photos: DataStore["photos"] | null;
   setName(name: string): void;
   saveSettings(settings: Settings): void;
-  addSpending(s: { name: string; fils: number; cat: CatKey; date?: DateKey; photo?: string | null }): void;
+  addSpending(s: { name: string; fils: number; cat: string; date?: DateKey; photo?: string | null }): void;
   updateSpending(s: Spending): void;
   removeSpending(s: Spending): void;
   answerQuestion(q: PapiQuestion, index: number): void;
   forgetMemory(id: string): void;
+  /** Deletes a category, first moving its spendings into `moveTo`. */
+  deleteCategory(id: string, moveTo: string | null): void;
   ask(text: string): Promise<void>;
   resetAll(): Promise<void>;
   dismissToast(): void;
@@ -58,16 +64,13 @@ export function useReady() {
 
 const PAYDAY_MEMORY = "payday";
 
-// Purrse has one user and no sign-in. She can change this name on the Budgets page.
-const OWNER_NAME = "Nourah";
-const withOwner = (d: AppData): AppData => (d.profile ? d : { ...d, profile: { name: OWNER_NAME } });
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(EMPTY_DATA);
   const [loaded, setLoaded] = useState(false);
   // Set on mount: the date must come from the visitor's device, never the prerender.
   const [today, setToday] = useState<DateKey>("");
-  const [pulse, setPulse] = useState<CatKey | null>(null);
+  const [pulse, setPulse] = useState<string | null>(null);
   const [pulseKey, setPulseKey] = useState(0);
   const [lastAnswer, setLastAnswer] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -81,7 +84,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     store.load().then((d) => {
       if (!alive) return;
       setToday(todayKey());
-      setData(withOwner(d));
+      setData(d);
       setLoaded(true);
     });
     return () => {
@@ -126,6 +129,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback((fn: (d: AppData) => AppData) => setData(fn), []);
 
+  const categories = useMemo(() => data.settings?.categories ?? [], [data.settings]);
+  const catOf = useCallback(
+    (id: string) => byId(categories)[id] ?? UNKNOWN_CATEGORY,
+    [categories],
+  );
+
   const summary = useMemo(
     () => (data.settings && today ? summarize(data.settings, data.spendings, today) : null),
     [data.settings, data.spendings, today],
@@ -162,13 +171,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPulseKey((k) => k + 1);
       clearTimeout(pulseTimer.current);
       pulseTimer.current = setTimeout(() => setPulse(null), 3200);
-      showToast(`Added ${fmt(fils)} KWD to ${CAT[cat].name}`, () => {
+      showToast(`Added ${fmt(fils)} KWD to ${catOf(cat).name}`, () => {
         update((d) => ({ ...d, spendings: d.spendings.filter((x) => x.id !== t.id) }));
         setPulse(null);
         dismissToast();
       });
     },
-    [update, showToast, dismissToast],
+    [update, showToast, dismissToast, catOf],
   );
 
   const updateSpending = useCallback(
@@ -214,6 +223,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const deleteCategory = useCallback(
+    (id: string, moveTo: string | null) =>
+      update((d) => {
+        if (!d.settings) return d;
+        const spendings = moveTo ? d.spendings.map((t) => (t.cat === id ? { ...t, cat: moveTo } : t)) : d.spendings;
+        return { ...d, spendings, settings: { ...d.settings, categories: d.settings.categories.filter((c) => c.id !== id) } };
+      }),
+    [update],
+  );
+
   const forgetMemory = useCallback(
     (id: string) => update((d) => ({ ...d, memory: d.memory.filter((m) => m.id !== id) })),
     [update],
@@ -244,7 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetAll = useCallback(async () => {
     await store.clear();
-    setData(withOwner({ ...EMPTY_DATA }));
+    setData({ ...EMPTY_DATA });
     setLastAnswer(null);
     setPulse(null);
     dismissToast();
@@ -257,6 +276,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     name: data.profile?.name ?? "",
     settings: data.settings,
     summary,
+    categories,
+    catOf,
     question,
     mood,
     pulse,
@@ -272,6 +293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     removeSpending,
     answerQuestion,
     forgetMemory,
+    deleteCategory,
     ask,
     resetAll,
     dismissToast,

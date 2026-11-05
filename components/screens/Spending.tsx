@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { byNewest, inPeriod, periodFor, sumFils, type Period } from "@/lib/budget";
-import { CAT, CATEGORIES, type CatKey } from "@/lib/categories";
 import { addDays, dayMonth, relativeDay } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import type { Spending } from "@/lib/types";
@@ -15,9 +14,9 @@ import { PapiBust } from "../ui";
 const PAGE = 60;
 
 export function SpendingScreen() {
-  const { summary: s, settings, data, removeSpending } = useReady();
+  const { summary: s, settings, data, removeSpending, categories, catOf } = useReady();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<CatKey | "all">("all");
+  const [filter, setFilter] = useState<string>("all");
   const [periodStart, setPeriodStart] = useState<string>("current");
   const [shown, setShown] = useState(PAGE);
   const [editing, setEditing] = useState<Spending | null>(null);
@@ -39,7 +38,7 @@ export function SpendingScreen() {
   const filtered = data.spendings
     .filter((t) => inPeriod(t.date, period))
     .filter((t) => filter === "all" || t.cat === filter)
-    .filter((t) => !q || t.name.toLowerCase().includes(q) || CAT[t.cat].name.toLowerCase().includes(q))
+    .filter((t) => !q || t.name.toLowerCase().includes(q) || catOf(t.cat).name.toLowerCase().includes(q))
     .sort(byNewest);
   const visible = filtered.slice(0, shown);
 
@@ -116,15 +115,15 @@ export function SpendingScreen() {
           </div>
 
           <div role="group" aria-label="Filter by category" className="chips filters">
-            {[{ key: "all" as const, name: "All", color: "var(--text)" }, ...CATEGORIES].map((c) => (
+            {[{ id: "all", name: "All", color: "var(--text)" }, ...categories].map((c) => (
               <button
-                key={c.key}
+                key={c.id}
                 type="button"
                 className="chip"
-                aria-pressed={filter === c.key}
-                style={filter === c.key ? { background: c.color, color: "var(--ground)" } : undefined}
+                aria-pressed={filter === c.id}
+                style={filter === c.id ? { background: c.color, color: "var(--ground)" } : undefined}
                 onClick={() => {
-                  setFilter(c.key);
+                  setFilter(c.id);
                   resetPaging();
                 }}
               >
@@ -141,7 +140,7 @@ export function SpendingScreen() {
               </div>
               <ul className="rows">
                 {g.rows.map((t) => (
-                  <SpendingRow key={t.id} t={t} sub={CAT[t.cat].name} onEdit={() => setEditing(t)} onRemove={() => removeSpending(t)} />
+                  <SpendingRow key={t.id} t={t} sub={catOf(t.cat).name} onEdit={() => setEditing(t)} onRemove={() => removeSpending(t)} />
                 ))}
               </ul>
             </section>
