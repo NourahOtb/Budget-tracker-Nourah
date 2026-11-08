@@ -4,6 +4,7 @@ import type { AuthError, Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { localStore, storeFor, supabase } from "@/lib/store";
 import { AppProvider } from "./AppProvider";
+import { ProProvider } from "./Pro";
 import { PapiBust } from "./ui";
 
 type AuthCtx = { email: string; signOut(): Promise<void> };
@@ -95,9 +96,9 @@ function SignedIn({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={ctx}>
-      <AppProvider key={session.user.id} store={store}>
-        {children}
-      </AppProvider>
+      <ProProvider key={session.user.id}>
+        <AppProvider store={store}>{children}</AppProvider>
+      </ProProvider>
     </Ctx.Provider>
   );
 }

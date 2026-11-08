@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CHAT_PROMPTS } from "@/lib/papi";
+import Link from "next/link";
 import { useReady } from "../AppProvider";
+import { usePro } from "../Pro";
 import { PapiBust } from "../ui";
 
 export function PapiScreen() {
   const { name, mood, data, question, papiTyping, ask, answerQuestion, forgetMemory } = useReady();
+  const pro = usePro();
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -37,10 +40,20 @@ export function PapiScreen() {
         <div className="chat-head">
           <PapiBust mood={mood} />
           <div>
-            <h1 className="h1">Papi</h1>
+            <h1 className="h1">
+              Papi{pro.isPro && <span className="pro-badge">Pro</span>}
+            </h1>
             <p className="muted">Quiet. Curious. Reads every receipt.</p>
           </div>
         </div>
+        {pro.available && !pro.isPro && (
+          <Link href="/pro" className="pro-banner">
+            <span>
+              <strong>Want Papi as your financial advisor?</strong> Get Purrse Pro for {"1.500"} KWD a month.
+            </span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
         <div className="bubbles" aria-live="polite">
           {chat.map((m, i) => (
             <div key={i} className={m.who === "papi" ? "bubble papi" : "bubble you"}>

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { dayMonth } from "@/lib/dates";
 import { useApp } from "./AppProvider";
 import { NameEntry } from "./NameEntry";
+import { usePro } from "./Pro";
 import { Setup } from "./Setup";
 import { ICONS, Icon, PapiBust } from "./ui";
 
@@ -19,6 +20,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const app = useApp();
+  const pro = usePro();
   const path = usePathname();
 
   if (app.loadFailed) {
@@ -56,7 +58,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
-        <p className="dates">{dates}</p>
+        <div className="topbar-side">
+          <p className="dates">{dates}</p>
+          {pro.available && (
+            <Link href="/pro" className={pro.isPro ? "pro-pill is-pro" : "pro-pill"} aria-current={isOn("/pro") ? "page" : undefined}>
+              {pro.isPro ? "Pro ✓" : "Purrse Pro"}
+            </Link>
+          )}
+        </div>
       </header>
 
       <main className="main">{children}</main>
