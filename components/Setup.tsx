@@ -16,7 +16,18 @@ export function parseLimit(text: string): number | null {
 }
 
 /** Field for typing a new category name, shared by setup and the Budgets page. */
-export function NewCategoryField({ onAdd, id }: { onAdd: (name: string) => string | null; id: string }) {
+export function NewCategoryField({
+  onAdd,
+  id,
+  autoFocus = false,
+  onCancel,
+}: {
+  onAdd: (name: string) => string | null;
+  id: string;
+  autoFocus?: boolean;
+  /** Shows a Cancel button, and Escape closes the field. */
+  onCancel?: () => void;
+}) {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const add = () => {
@@ -40,6 +51,7 @@ export function NewCategoryField({ onAdd, id }: { onAdd: (name: string) => strin
           maxLength={30}
           placeholder="Gym, Gifts, Kids…"
           autoComplete="off"
+          autoFocus={autoFocus}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
           onChange={(e) => {
@@ -52,11 +64,20 @@ export function NewCategoryField({ onAdd, id }: { onAdd: (name: string) => strin
               e.preventDefault();
               add();
             }
+            if (e.key === "Escape" && onCancel) {
+              e.preventDefault();
+              onCancel();
+            }
           }}
         />
         <button type="button" className="btn-ghost" onClick={add}>
           Add
         </button>
+        {onCancel && (
+          <button type="button" className="icon-btn" onClick={onCancel} aria-label="Close without adding">
+            <Icon d={ICONS.close} size={18} />
+          </button>
+        )}
       </div>
       {error && (
         <p id={`${id}-error`} className="field-error">
@@ -82,6 +103,7 @@ export function Setup() {
   // Limits the owner typed herself; null while Papi's suggestions are in use.
   const [typed, setTyped] = useState<Record<string, string> | null>(null);
   const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const total = parseKwd(totalText);
   const suggested = Object.fromEntries(suggestLimits(total ?? 0, chosen).map((c) => [c.id, fmt(c.limit)]));
@@ -182,7 +204,7 @@ export function Setup() {
 
         <fieldset className="setup-cats">
           <legend className="field-label">Which categories do you need?</legend>
-          <p className="field-hint">Tap to choose. Add your own if something’s missing.</p>
+          <p className="field-hint">Tap to choose. Use + if something’s missing.</p>
           <div className="chips" role="group" aria-label="Suggested categories">
             {PRESETS.map((p) => {
               const on = chosen.some((c) => c.id === p.id);
@@ -215,8 +237,14 @@ export function Setup() {
                 <Icon d={ICONS.close} size={16} />
               </button>
             ))}
+            {!adding && (
+              <button type="button" className="chip cat-chip add-chip" aria-expanded={false} onClick={() => setAdding(true)}>
+                <Icon d={ICONS.plus} size={18} />
+                Add your own
+              </button>
+            )}
           </div>
-          <NewCategoryField id="setup-new-cat" onAdd={addCustom} />
+          {adding && <NewCategoryField id="setup-new-cat" autoFocus onAdd={addCustom} onCancel={() => setAdding(false)} />}
         </fieldset>
 
         {chosen.length > 0 && (

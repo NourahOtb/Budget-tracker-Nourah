@@ -71,9 +71,9 @@ export function BudgetsScreen() {
             </div>
           </section>
         ))}
+        <AddCategory />
       </div>
 
-      <AddCategory />
       <Details />
       <DeleteCategoryDialog category={deleting} onClose={() => setDeleting(null)} />
     </div>
@@ -261,18 +261,33 @@ function CategoryHead({
   );
 }
 
-/** Add a suggested category back, or type a new one. */
+/** A + card after the categories: opens to add a suggested category back, or type a new one. */
 function AddCategory() {
   const { settings, saveSettings, categories } = useReady();
+  const [open, setOpen] = useState(false);
   const missing = PRESETS.filter((p) => !categories.some((c) => c.id === p.id));
-  const add = (c: Category) => saveSettings({ ...settings, categories: [...categories, c] });
+  const add = (c: Category) => {
+    saveSettings({ ...settings, categories: [...categories, c] });
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <button type="button" className="panel add-cat-tile" aria-expanded={false} onClick={() => setOpen(true)}>
+        <span className="add-cat-plus" aria-hidden="true">
+          <Icon d={ICONS.plus} size={28} />
+        </span>
+        Add a category
+      </button>
+    );
+  }
 
   return (
-    <section aria-labelledby="add-cat-title" className="panel add-cat">
+    <section aria-labelledby="add-cat-title" className="panel budget-card add-cat">
       <h2 id="add-cat-title" className="h2">
         Add a category
       </h2>
-      <p className="muted add-cat-hint">New categories start at 0 KWD. Use + to give them a budget.</p>
+      <p className="muted add-cat-hint">It starts at 0 KWD. Use + on its card to give it a budget.</p>
       {missing.length > 0 && (
         <div className="chips" role="group" aria-label="Suggested categories">
           {missing.map((p) => (
@@ -286,6 +301,8 @@ function AddCategory() {
       )}
       <NewCategoryField
         id="budgets-new-cat"
+        autoFocus
+        onCancel={() => setOpen(false)}
         onAdd={(typed) => {
           const n = cleanName(typed);
           const preset = missing.find((p) => p.name.toLowerCase() === n.toLowerCase());

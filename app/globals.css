@@ -1833,8 +1833,51 @@ p.readout {
 }
 
 .add-cat {
-  margin-block-start: 20px;
   padding: 24px;
+}
+
+.add-cat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 150px;
+  width: 100%;
+  background: transparent;
+  border: 2px dashed var(--border);
+  color: var(--muted);
+  font: inherit;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.add-cat-tile:hover {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.add-cat-plus {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--raised);
+  color: var(--text);
+}
+
+.add-chip {
+  background: transparent;
+  border: 2px dashed var(--border);
+  color: var(--muted);
+}
+
+.add-chip:hover {
+  color: var(--text);
+  border-color: var(--muted);
 }
 
 p.add-cat-hint {

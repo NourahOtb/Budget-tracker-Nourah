@@ -10,6 +10,7 @@ export const ICONS = {
   papi: "M5 3l3 5a8 8 0 0 1 8 0l3-5 1 11a8 8 0 0 1-16 0zM9 13h.01M15 13h.01M9.5 17c1-1 2-1 2.5 0 .5-1 1.5-1 2.5 0",
   trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5",
   close: "M6 6l12 12M18 6L6 18",
+  plus: "M12 5v14M5 12h14",
   pencil: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
 };
