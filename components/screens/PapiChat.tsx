@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ADVISOR_DAILY_LIMIT } from "@/lib/ai";
 import { CHAT_PROMPTS } from "@/lib/papi";
 import Link from "next/link";
 import { useReady } from "../AppProvider";
@@ -8,13 +9,22 @@ import { usePro } from "../Pro";
 import { PapiBust } from "../ui";
 
 export function PapiScreen() {
-  const { name, mood, data, question, papiTyping, ask, answerQuestion, forgetMemory } = useReady();
+  const { name, mood, data, question, papiTyping, advisorLeft, ask, answerQuestion, forgetMemory } = useReady();
   const pro = usePro();
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   const chat = [
-    ...(data.chat.length ? [] : [{ who: "papi" as const, text: `Hi ${name}. Ask me anything about your spending.` }]),
+    ...(data.chat.length
+      ? []
+      : [
+          {
+            who: "papi" as const,
+            text: pro.isPro
+              ? `Hi ${name}. I’m your money advisor now. Ask me anything: what you can afford, where to save, how to plan for something big.`
+              : `Hi ${name}. Ask me anything about your spending.`,
+          },
+        ]),
     ...data.chat,
     ...(question ? [{ who: "papi" as const, text: question.text }] : []),
   ];
@@ -43,7 +53,11 @@ export function PapiScreen() {
             <h1 className="h1">
               Papi{pro.isPro && <span className="pro-badge">Pro</span>}
             </h1>
-            <p className="muted">Quiet. Curious. Reads every receipt.</p>
+            <p className="muted">
+              {pro.isPro
+                ? `Your financial advisor.${advisorLeft !== null ? ` ${advisorLeft} of ${ADVISOR_DAILY_LIMIT} questions left today.` : ""}`
+                : "Quiet. Curious. Reads every receipt."}
+            </p>
           </div>
         </div>
         {pro.available && !pro.isPro && (
@@ -61,7 +75,11 @@ export function PapiScreen() {
               {m.text}
             </div>
           ))}
-          {papiTyping && <div className="bubble papi typing">Papi is thinking…</div>}
+          {papiTyping && (
+            <div className="bubble papi typing">
+              {pro.isPro ? "Papi is doing the sums… Advisor answers can take up to a minute." : "Papi is thinking…"}
+            </div>
+          )}
           <div ref={endRef} />
         </div>
         <div className="chips">

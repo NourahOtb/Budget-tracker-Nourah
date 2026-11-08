@@ -116,6 +116,19 @@ One row each time someone presses **Pay** for Purrse Pro.
 | `pro_until` | The moment Pro ends. If this date has passed, they are no longer Pro. |
 | `updated_at` | When it last changed. |
 
+### `ai_usage`: how many times someone used Papi's AI today
+
+Free AI models have limits, so each person gets a daily allowance: **20 advisor
+questions** (Pro only) and **20 receipt readings**. This table counts them. A new day
+(Kuwait time) starts a fresh count.
+
+| Column | What it means |
+| --- | --- |
+| `user_id` | Who used the AI. |
+| `day` | Which day (Kuwait time). |
+| `kind` | `advice` (a question to Papi the advisor) or `receipt` (a receipt Papi read). |
+| `count` | How many times so far that day. |
+
 ## How the tables connect
 
 ```
@@ -127,7 +140,8 @@ account (kept by Supabase)
  ├── chat_messages       (many)
  ├── answered_questions  (many)
  ├── payments            (many)
- └── pro_access          (one, once they buy Pro)
+ ├── pro_access          (one, once they buy Pro)
+ └── ai_usage            (one per day per kind)
 ```
 
 - Each spending must point at one of the **same person's** categories. The database
@@ -141,11 +155,11 @@ account (kept by Supabase)
 | Table | The person themselves | Everyone else |
 | --- | --- | --- |
 | `profile`, `categories`, `spendings`, `papi_memory`, `chat_messages`, `answered_questions` | Read and change their own rows | Nothing |
-| `payments`, `pro_access` | **Read only** | Nothing |
+| `payments`, `pro_access`, `ai_usage` | **Read only** | Nothing |
 
-`payments` and `pro_access` are read-only on purpose: otherwise anyone could make
-themselves Pro from their browser. Only the two payment functions (below) can write to
-them, and only after MyFatoorah confirms the money arrived.
+These three are read-only on purpose: otherwise anyone could make themselves Pro, or
+reset their daily AI count, from their browser. Only the edge functions (below) can
+write to them: the payment ones only after MyFatoorah confirms the money arrived.
 
 ## Photos
 
@@ -180,6 +194,24 @@ this repo:
 | `MYFATOORAH_API_KEY` | The API key from the MyFatoorah portal. |
 | `MYFATOORAH_BASE_URL` | Optional. Leave it out for MyFatoorah's test server; set it to `https://api.myfatoorah.com` for real Kuwaiti payments. |
 | `APP_URL` | Optional. Where people return after paying. Defaults to `https://purrse-swart.vercel.app`. |
+
+## Papi's AI features
+
+Two more edge functions talk to free AI models through **OpenRouter**. The OpenRouter key
+is a Supabase secret (`OPENROUTER_API_KEY`), so it never reaches the browser or this repo.
+
+- **`papi-advisor`** (Purrse Pro only): when a Pro member asks Papi something in the chat,
+  the app sends the question, the last few chat messages and a short summary of *their own*
+  month (budget, categories, this month's spendings, Papi's notes). The function checks
+  they are Pro and under 20 questions today, then asks the AI and returns Papi's answer.
+  The answer is saved in `chat_messages` like any other message.
+- **`read-receipt`** (everyone): when someone adds a photo, the app sends it here. The AI
+  reads the total paid, the shop name, the date and a category guess. Nothing is saved
+  until the person checks what Papi filled in and taps **Add**.
+- If the AI fails or is busy, that try doesn't count toward the daily limit.
+
+Optional secrets to change which free models are used, in order of preference:
+`OPENROUTER_ADVISOR_MODELS` and `OPENROUTER_RECEIPT_MODELS` (comma-separated model ids).
 
 ## What happens when…
 

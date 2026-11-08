@@ -6,8 +6,10 @@ import { byId, UNKNOWN_CATEGORY, type Category } from "@/lib/categories";
 import { ordinal, todayKey, type DateKey } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { findQuestion, papiReply, type PapiQuestion } from "@/lib/papi";
+import { AiError, advisorContext, askAdvisor } from "@/lib/ai";
 import { newId, type DataStore } from "@/lib/store";
 import { summarize, type Summary } from "@/lib/summary";
+import { usePro } from "./Pro";
 import { EMPTY_DATA, type AppData, type Settings, type Spending } from "@/lib/types";
 
 type Toast = { id: number; text: string; undo?: () => void };
@@ -34,6 +36,8 @@ type AppCtx = {
   lastAnswer: string | null;
   toast: Toast | null;
   papiTyping: boolean;
+  /** Advisor questions left today for Pro members, once known. */
+  advisorLeft: number | null;
   /** Photo storage, or null when the store can't hold photos (no Supabase). */
   photos: DataStore["photos"] | null;
   setName(name: string): void;
@@ -80,6 +84,8 @@ export function AppProvider({ store, children }: { store: DataStore; children: R
   const [lastAnswer, setLastAnswer] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [papiTyping, setPapiTyping] = useState(false);
+  const [advisorLeft, setAdvisorLeft] = useState<number | null>(null);
+  const pro = usePro();
   const pulseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const toastSeq = useRef(0);
@@ -254,23 +260,42 @@ export function AppProvider({ store, children }: { store: DataStore; children: R
     async (text: string) => {
       const q = text.trim();
       if (!q || !data.settings || !summary) return;
+      const history = data.chat;
       update((d) => ({ ...d, chat: [...d.chat, { who: "you", text: q }] }));
       setPapiTyping(true);
+      const say = (text: string) => update((d) => ({ ...d, chat: [...d.chat, { who: "papi", text }] }));
       try {
-        const reply = await papiReply(q, {
-          name: data.profile?.name ?? "",
-          s: summary,
-          settings: data.settings,
-          spendings: data.spendings,
-        });
-        update((d) => ({ ...d, chat: [...d.chat, { who: "papi", text: reply }] }));
-      } catch {
-        update((d) => ({ ...d, chat: [...d.chat, { who: "papi", text: "I lost my thought. Ask me again?" }] }));
+        if (pro.isPro) {
+          // Purrse Pro: Papi answers as an AI financial advisor, from this person's own numbers.
+          const context = advisorContext({
+            name: data.profile?.name ?? "",
+            settings: data.settings,
+            summary,
+            spendings: data.spendings,
+            memory: data.memory,
+            catOf,
+          });
+          const { reply, left } = await askAdvisor(q, context, history);
+          setAdvisorLeft(left);
+          say(reply);
+        } else {
+          say(
+            await papiReply(q, {
+              name: data.profile?.name ?? "",
+              s: summary,
+              settings: data.settings,
+              spendings: data.spendings,
+            }),
+          );
+        }
+      } catch (err) {
+        if (err instanceof AiError && err.code === "daily_limit") setAdvisorLeft(0);
+        say(err instanceof AiError ? err.message : "I lost my thought. Ask me again?");
       } finally {
         setPapiTyping(false);
       }
     },
-    [data.settings, data.profile, data.spendings, summary, update],
+    [data.settings, data.profile, data.spendings, data.memory, data.chat, summary, update, pro.isPro, catOf],
   );
 
   const resetAll = useCallback(async () => {
@@ -302,6 +327,7 @@ export function AppProvider({ store, children }: { store: DataStore; children: R
     lastAnswer,
     toast,
     papiTyping,
+    advisorLeft,
     photos: store.photos ?? null,
     setName,
     saveSettings,

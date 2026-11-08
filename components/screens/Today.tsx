@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { categoryState } from "@/lib/budget";
-import { relativeDay } from "@/lib/dates";
+import { AiError, readReceipt, type ReceiptReading } from "@/lib/ai";
+import { relativeDay, shortDate, type DateKey } from "@/lib/dates";
 import { fmt } from "@/lib/money";
 import { papiLine } from "@/lib/papi";
 import { shrinkImage } from "@/lib/image";
@@ -88,14 +89,63 @@ function Hero() {
   );
 }
 
+type Reading =
+  | { state: "reading" }
+  | { state: "done"; result: ReceiptReading; filled: boolean }
+  | { state: "failed"; text: string };
+
 function AddForm() {
-  const { addSpending, data, photos, categories } = useReady();
+  const { addSpending, data, photos, categories, today, catOf } = useReady();
   const [draft, setDraft] = useState("");
   const [draftCat, setDraftCat] = useState<string | null>(null);
+  // The receipt's own date, when Papi read one; otherwise the spending is dated today.
+  const [draftDate, setDraftDate] = useState<DateKey | null>(null);
   const photo = usePickedPhoto();
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState("");
+  const [reading, setReading] = useState<Reading | null>(null);
+  // Ignores a reading that finishes after the photo was changed or removed.
+  const readSeq = useRef(0);
   const input = useRef<HTMLInputElement>(null);
+
+  const fillFrom = (r: ReceiptReading) => {
+    if (!r.fils) return;
+    // Receipts often print names in capitals; "THE SULTAN CENTER" reads better as "The Sultan Center".
+    const name = r.name && r.name === r.name.toUpperCase() ? r.name.toLowerCase().replace(/(^|\s)\p{L}/gu, (ch) => ch.toUpperCase()) : r.name;
+    setDraft(`${fmt(r.fils)} ${name ?? "Receipt"}`);
+    setDraftCat(r.cat);
+    setDraftDate(r.date && r.date <= today ? r.date : null);
+  };
+
+  const clearPhoto = () => {
+    readSeq.current++;
+    photo.setFile(null);
+    setReading(null);
+    setDraftDate(null);
+  };
+
+  const pickPhoto = async (f: File) => {
+    photo.setFile(f);
+    setPhotoError("");
+    const seq = ++readSeq.current;
+    setReading({ state: "reading" });
+    try {
+      const result = await readReceipt(await shrinkImage(f), categories, today);
+      if (seq !== readSeq.current) return;
+      // Fill the form only if the person hasn't started typing their own.
+      const filled = !!result.fils && !draftRef.current.trim();
+      if (filled) fillFrom(result);
+      setReading({ state: "done", result, filled });
+      if (filled) input.current?.focus();
+    } catch (err) {
+      if (seq !== readSeq.current) return;
+      setReading({ state: "failed", text: err instanceof AiError ? err.message : "Papi couldn’t read that receipt. Type the amount instead." });
+    }
+  };
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   const parsed = parseQuickAdd(draft, categories);
   const cat = draftCat ?? parsed?.cat ?? null;
   const usual = useMemo(
@@ -119,10 +169,10 @@ function AddForm() {
         setUploading(false);
       }
     }
-    addSpending({ name: parsed.name, fils: parsed.fils, cat, photo: path });
+    addSpending({ name: parsed.name, fils: parsed.fils, cat, photo: path, date: draftDate ?? undefined });
     setDraft("");
     setDraftCat(null);
-    photo.setFile(null);
+    clearPhoto();
   };
 
   return (
@@ -139,18 +189,16 @@ function AddForm() {
           onChange={(e) => {
             setDraft(e.target.value);
             setDraftCat(null);
+            if (!e.target.value.trim()) setDraftDate(null);
           }}
-          placeholder="4.5 coffee"
+          placeholder={photo.file ? "Papi fills this from the photo" : "4.5 coffee"}
           autoComplete="off"
           aria-describedby="add-hint"
         />
         {photos && (
           <PhotoButton
-            label={photo.file ? "Change photo" : "Add a photo"}
-            onPick={(f) => {
-              photo.setFile(f);
-              setPhotoError("");
-            }}
+            label={photo.file ? "Change photo" : "Add a photo or receipt"}
+            onPick={(f) => void pickPhoto(f)}
           />
         )}
         <button type="submit" className={parsed && !uploading ? "btn-solid add-btn" : "btn-off add-btn"} disabled={!parsed || uploading}>
@@ -165,11 +213,41 @@ function AddForm() {
           {/* eslint-disable-next-line @next/next/no-img-element -- local preview of a picked file */}
           <img src={photo.preview} alt="Photo to attach" />
           <span className="muted">Photo will be added with this spending.</span>
-          <button type="button" className="link-btn" onClick={() => photo.setFile(null)}>
+          <button type="button" className="link-btn" onClick={clearPhoto}>
             Remove photo
           </button>
         </div>
       )}
+      <div role="status" aria-live="polite">
+        {reading?.state === "reading" && <p className="receipt-note busy">Papi is reading your receipt…</p>}
+        {reading?.state === "done" && reading.result.fils && (
+          <div className="receipt-note good">
+            <p>
+              Papi read <strong className="num">{fmt(reading.result.fils)} KWD</strong>
+              {reading.result.name ? ` at ${reading.result.name}` : ""}
+              {reading.result.date && reading.result.date !== today ? `, on ${shortDate(reading.result.date)}` : ""}
+              {reading.result.cat ? `, for ${catOf(reading.result.cat).name}` : ""}.{" "}
+              {reading.filled ? "Check it, then tap Add." : ""}
+            </p>
+            {!reading.filled && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  fillFrom(reading.result);
+                  setReading({ ...reading, filled: true });
+                }}
+              >
+                Use Papi’s reading
+              </button>
+            )}
+          </div>
+        )}
+        {reading?.state === "done" && !reading.result.fils && reading.result.message && (
+          <p className="receipt-note warn">{reading.result.message}</p>
+        )}
+        {reading?.state === "failed" && <p className="receipt-note warn">{reading.text}</p>}
+      </div>
       {photoError && (
         <p className="field-error" role="alert">
           {photoError}
@@ -177,7 +255,9 @@ function AddForm() {
       )}
       {parsed ? (
         <div className="add-cats">
-          <p className="muted">{parsed.name} goes in:</p>
+          <p className="muted">
+            {parsed.name} goes in{draftDate ? ` (dated ${shortDate(draftDate)})` : ""}:
+          </p>
           <div className="chips" role="group" aria-label="Category">
             {categories.map((c) => (
               <button

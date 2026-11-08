@@ -2176,3 +2176,39 @@ p.del-text {
     font-size: 14px;
   }
 }
+
+/* Receipt reading */
+.receipt-note {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--raised);
+  line-height: 1.4;
+  font-size: 15px;
+}
+
+.receipt-note p {
+  margin: 0;
+}
+
+.receipt-note.busy {
+  color: var(--muted);
+}
+
+.receipt-note.good {
+  border: 2px solid var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, var(--surface));
+}
+
+.receipt-note.good strong {
+  color: var(--mint);
+}
+
+.receipt-note.warn {
+  border: 2px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 12%, var(--surface));
+}
+
+.receipt-note .link-btn {
+  min-height: 36px;
+}
